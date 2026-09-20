@@ -1,8 +1,7 @@
 import pandas as pd
+import joblib
 from pathlib import Path
 from sklearn.model_selection import train_test_split
-
-# from sklearn.ensemble import GradientBoostingRegressor
 from xgboost import XGBRegressor
 from sklearn.metrics import mean_absolute_error
 
@@ -14,8 +13,10 @@ def load_data() -> pd.DataFrame:
     return pd.read_parquet(DEMAND_DATA)
 
 
-def split_data(demand: pd.DataFrame) -> list:
-    cutoff = pd.Timestamp("2024-01-25")
+def split_data(
+    demand: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+    cutoff = pd.Timestamp("2024-01-25")  # ~80% for January (the only data)
     train = demand[demand["pickup_hour_ts"] < cutoff]
     test = demand[demand["pickup_hour_ts"] >= cutoff]
 
@@ -28,10 +29,14 @@ def split_data(demand: pd.DataFrame) -> list:
     return X_train, X_test, y_train, y_test
 
 
-def train_model(X_train, y_train):
+def train_model(X_train, y_train) -> XGBRegressor:
     model = XGBRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
     return model
+
+
+def save_model(model: XGBRegressor, path: Path) -> None:
+    joblib.dump(model, path)
 
 
 if __name__ == "__main__":
@@ -43,3 +48,8 @@ if __name__ == "__main__":
     predictions = model.predict(X_test)
     mae = mean_absolute_error(y_test, predictions)
     print(f"MAE: {mae:.1f} trips")
+
+    model_path = ROOT / "models" / "xgb_demand.joblib"
+    model_path.parent.mkdir(exist_ok=True)
+    save_model(model, model_path)
+    print(f"Model saved to {model_path}")
