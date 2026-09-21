@@ -8,7 +8,7 @@ RAW_DATA = ROOT / "data" / "yellow_tripdata_2024-01.parquet"
 def load_and_clean(path: Path) -> pd.DataFrame:
     df = pd.read_parquet(path)
     df = df[
-        ("tpep_pickup_datetime" >= "2024-01-01")
+        (df["tpep_pickup_datetime"] >= "2024-01-01")
         & (df["tpep_pickup_datetime"] < "2024-02-01")
     ]
     df = df[(df["trip_distance"] > 0) & (df["fare_amount"] > 0)]
