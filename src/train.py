@@ -30,7 +30,9 @@ def split_data(
 
 
 def train_model(X_train: pd.DataFrame, y_train: pd.Series) -> XGBRegressor:
-    model = XGBRegressor(n_estimators=100, random_state=42)
+    model = XGBRegressor(
+        n_estimators=300, random_state=42, max_depth=9, learning_rate=0.05
+    )
     model.fit(X_train, y_train)
     return model
 
@@ -61,7 +63,7 @@ if __name__ == "__main__":
     X_train, X_test, y_train, y_test = split_data(demand)
     print(X_train.shape, X_test.shape)
 
-    model = tune_model(X_train, y_train)
+    model = train_model(X_train, y_train)
     # print(model.get_params())
     predictions = model.predict(X_test)
     mae = mean_absolute_error(y_test, predictions)
