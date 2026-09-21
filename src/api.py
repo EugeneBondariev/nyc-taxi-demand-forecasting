@@ -50,5 +50,5 @@ def predict(request: PredictionRequest) -> PredictionResponse:
         "hour": request.hour,
         "day_of_week": request.day_of_week,
         "week": request.week,
-        "predicted_trips": round(float(prediction[0]), 2),
+        "predicted_trips": round(max(0.0, float(prediction[0])), 2),
     }
