@@ -1,8 +1,11 @@
 import pandas as pd
 import calendar
+import logging
 from pathlib import Path
 from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
 from xgboost import XGBRegressor
+
+logger = logging.getLogger(__name__)
 
 
 def predict_and_evaluate(
@@ -12,8 +15,8 @@ def predict_and_evaluate(
     mae = mean_absolute_error(y_pred=predictions, y_true=y_test)
     mape = mean_absolute_percentage_error(y_pred=predictions, y_true=y_test)
 
-    print(f"MAE: {mae:.1f} trips")
-    print(f"MAPE: {mape:.1%}")
+    logger.info(f"MAE: {mae:.1f} trips")
+    logger.info(f"MAPE: {mape:.1%}")
 
     return mae, mape
 

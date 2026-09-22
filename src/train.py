@@ -1,3 +1,4 @@
+import logging
 import os
 import mlflow
 import pandas as pd
@@ -7,8 +8,11 @@ from xgboost import XGBRegressor
 from sklearn.model_selection import GridSearchCV
 from .utils import predict_and_evaluate, get_features_and_target
 from .config import ROOT, DEMAND_DATA, MODEL_PATH, DEMAND_FEATURES, DEMAND_TARGET
+from .logger import setup_logging
 
 os.environ["MLFLOW_ARTIFACT_ROOT"] = str(ROOT / "mlflow_artifacts")
+
+logger = logging.getLogger(__name__)
 
 
 def load_data() -> pd.DataFrame:
@@ -28,7 +32,7 @@ def split_data(
     X_train, y_train = get_features_and_target(train, DEMAND_FEATURES, DEMAND_TARGET)
     X_test, y_test = get_features_and_target(test, DEMAND_FEATURES, DEMAND_TARGET)
 
-    print("Data split complete")
+    logger.info("Data split complete")
 
     return X_train, X_test, y_train, y_test
 
@@ -38,7 +42,7 @@ def train_model(X_train: pd.DataFrame, y_train: pd.Series) -> XGBRegressor:
         n_estimators=300, random_state=42, max_depth=9, learning_rate=0.05
     )
     model.fit(X_train, y_train)
-    print("The model training complete")
+    logger.info("The model training complete")
 
     return model
 
@@ -55,20 +59,20 @@ def tune_model(X_train, y_train):
         model, param_grid, cv=3, scoring="neg_mean_absolute_error", n_jobs=-1
     )
     search.fit(X_train, y_train)
-    print("Best params:", search.best_params_)
-    print("Best CV MAE:", -search.best_score_)
+    logger.info("Best params:", search.best_params_)
+    logger.info("Best CV MAE:", -search.best_score_)
     return search.best_estimator_
 
 
 def save_model(model: XGBRegressor, path: Path) -> None:
     joblib.dump(model, path)
-    print(f"Model saved to {MODEL_PATH}")
+    logger.info(f"Model saved to {MODEL_PATH}")
 
 
 def run_mlflow():
     mlflow.set_tracking_uri("sqlite:///mlflow.db")
     runs = mlflow.search_runs()
-    print(runs[["metrics.mae", "params.n_estimators", "params.learning_rate"]])
+    logger.info(runs[["metrics.mae", "params.n_estimators", "params.learning_rate"]])
 
 
 def run_training_pipeline() -> None:
@@ -82,5 +86,6 @@ def run_training_pipeline() -> None:
 
 
 if __name__ == "__main__":
+    setup_logging()
     run_training_pipeline()
     run_mlflow()

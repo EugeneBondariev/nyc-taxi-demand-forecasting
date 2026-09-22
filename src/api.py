@@ -1,17 +1,22 @@
+import logging
 import joblib
 import pandas as pd
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
 from .config import MODEL_PATH
+from .logger import setup_logging
 
+logger = logging.getLogger(__name__)
 model = None
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    setup_logging()
     global model
     model = joblib.load(MODEL_PATH)
+    logger.info("Model loaded successfully")
     yield
 
 

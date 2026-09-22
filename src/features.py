@@ -1,3 +1,4 @@
+import logging
 import pandas as pd
 from urllib.request import urlretrieve
 from urllib.error import HTTPError
@@ -5,9 +6,12 @@ from pathlib import Path
 from datetime import datetime
 from .utils import is_valid_file
 from .config import RAW_DATA_FOLDER, DEMAND_DATA, DEMAND_TARGET
+from .logger import setup_logging
 
 FIRST_YEAR_AVAILABLE = 2009
 NEXT_YEAR = datetime.now().year + 1
+
+logger = logging.getLogger(__name__)
 
 
 def download_data(year: int) -> None:
@@ -21,7 +25,7 @@ def download_data(year: int) -> None:
         file.parent.mkdir(parents=True, exist_ok=True)
 
         if not file.exists() or not is_valid_file(file, year, i):
-            print(f"Downloading the file for {year}-{i:02d}")
+            logger.info(f"Downloading the file for {year}-{i:02d}")
             try:
                 urlretrieve(
                     f"https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{year}-{i:02d}.parquet",
@@ -29,11 +33,11 @@ def download_data(year: int) -> None:
                 )
             except HTTPError as e:
                 if e.code == 404:
-                    print(f"Data for {year}-{i:02d} not yet available, skipping")
+                    logger.info(f"Data for {year}-{i:02d} not yet available, skipping")
                 else:
                     raise
         else:
-            print(f"The {year}-{i:02d} file already exists - skipping")
+            logger.info(f"The {year}-{i:02d} file already exists - skipping")
 
 
 def load_and_clean(
@@ -53,7 +57,7 @@ def load_and_clean(
         df = clean(df, file_year, file_month)
 
         dfs.append(df)
-        print(f"{file} was successfully processed")
+        logger.info(f"{file} was successfully processed")
 
     if not dfs:
         raise ValueError(f"No parquet files found for year={year}, month={month}")
@@ -84,12 +88,12 @@ def build_demand_table(df: pd.DataFrame) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
+    setup_logging()
     for year in range(FIRST_YEAR_AVAILABLE, NEXT_YEAR):
         download_data(year)
     df = load_and_clean(RAW_DATA_FOLDER)
     demand = build_demand_table(df)
-    print(demand.head())
 
     demand.to_parquet(DEMAND_DATA, index=False)
-    print(demand[DEMAND_TARGET].describe())
-    print(f"Saved {len(demand)} rows to {DEMAND_DATA}")
+    logger.info(demand[DEMAND_TARGET].describe())
+    logger.info(f"Saved {len(demand)} rows to {DEMAND_DATA}")

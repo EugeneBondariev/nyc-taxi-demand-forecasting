@@ -1,3 +1,4 @@
+import logging
 import joblib
 from .features import (
     download_data,
@@ -14,15 +15,19 @@ from .config import (
     MAPE_THRESHOLD,
 )
 from .train import run_training_pipeline
+from .logger import setup_logging
+
+logger = logging.getLogger(__name__)
 
 
 def compare_predictions(mae: float, mape: float) -> None:
     if mae > MAE_THRESHOLD or mape > MAPE_THRESHOLD:
-        print("Trigger retraining")
+        logger.warning("Trigger retraining")
         run_training_pipeline()
 
 
 if __name__ == "__main__":
+    setup_logging()
     download_data(2025)
     df = load_and_clean(RAW_DATA_FOLDER, 2025, 1)
     demand = build_demand_table(df)
