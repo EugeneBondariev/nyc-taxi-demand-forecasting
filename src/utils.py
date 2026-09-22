@@ -13,7 +13,7 @@ def predict_and_evaluate(
     mape = mean_absolute_percentage_error(y_pred=predictions, y_true=y_test)
 
     print(f"MAE: {mae:.1f} trips")
-    print(f"MAPE: {mape:.1f} trips")
+    print(f"MAPE: {mape:.1%}")
 
     return mae, mape
 

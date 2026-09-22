@@ -5,15 +5,19 @@ from .features import (
     build_demand_table,
 )
 from .utils import predict_and_evaluate, get_features_and_target
-from .config import MODEL_PATH, RAW_DATA_FOLDER, DEMAND_FEATURES, DEMAND_TARGET
+from .config import (
+    MODEL_PATH,
+    RAW_DATA_FOLDER,
+    DEMAND_FEATURES,
+    DEMAND_TARGET,
+    MAE_THRESHOLD,
+    MAPE_THRESHOLD,
+)
 from .train import run_training_pipeline
 
 
 def compare_predictions(mae: float, mape: float) -> None:
-    mae_threshold = 12
-    mape_threshold = 0.15
-
-    if mae > mae_threshold or mape > mape_threshold:
+    if mae > MAE_THRESHOLD or mape > MAPE_THRESHOLD:
         print("Trigger retraining")
         run_training_pipeline()
 

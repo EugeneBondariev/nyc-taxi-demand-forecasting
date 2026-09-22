@@ -50,11 +50,7 @@ def load_and_clean(
             continue
 
         df = pd.read_parquet(file)
-        df = df[
-            (df["tpep_pickup_datetime"].dt.year == file_year)
-            & (df["tpep_pickup_datetime"].dt.month == file_month)
-        ]
-        df = df[(df["trip_distance"] > 0) & (df["fare_amount"] > 0)]
+        df = clean(df, file_year, file_month)
 
         dfs.append(df)
         print(f"{file} was successfully processed")
@@ -63,6 +59,14 @@ def load_and_clean(
         raise ValueError(f"No parquet files found for year={year}, month={month}")
 
     return pd.concat(dfs, ignore_index=True)
+
+
+def clean(df: pd.DataFrame, year: int, month: int) -> pd.DataFrame:
+    df = df[
+        (df["tpep_pickup_datetime"].dt.year == year)
+        & (df["tpep_pickup_datetime"].dt.month == month)
+    ]
+    return df[(df["trip_distance"] > 0) & (df["fare_amount"] > 0)]
 
 
 def build_demand_table(df: pd.DataFrame) -> pd.DataFrame:
