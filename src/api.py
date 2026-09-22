@@ -2,14 +2,20 @@ import joblib
 import pandas as pd
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
-from pathlib import Path
-from xgboost import XGBRegressor
+from contextlib import asynccontextmanager
+from .config import MODEL_PATH
 
-ROOT = Path(__file__).parent.parent
-MODEL_PATH = ROOT / "models" / "xgb_demand.joblib"
+model = None
 
-app = FastAPI()
-model: XGBRegressor = joblib.load(MODEL_PATH)
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    global model
+    model = joblib.load(MODEL_PATH)
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 class PredictionRequest(BaseModel):

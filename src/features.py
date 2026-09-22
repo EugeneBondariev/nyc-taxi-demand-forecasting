@@ -1,61 +1,66 @@
 import pandas as pd
-import calendar
+from urllib.request import urlretrieve
+from urllib.error import HTTPError
 from pathlib import Path
 from datetime import datetime
-from urllib.request import urlretrieve
+from .utils import is_valid_file
+from .config import RAW_DATA_FOLDER, DEMAND_DATA, DEMAND_TARGET
 
-ROOT = Path(__file__).parent.parent
-RAW_DATA_FOLDER = ROOT / "data"
 FIRST_YEAR_AVAILABLE = 2009
 NEXT_YEAR = datetime.now().year + 1
 
 
 def download_data(year: int) -> None:
-    if year < 2009 or year > 2030:
-        raise ValueError(f"Unexpected year: {year}. Should be between 2009 and 2030")
+    if year < FIRST_YEAR_AVAILABLE or year >= NEXT_YEAR:
+        raise ValueError(
+            f"Unexpected year: {year}. Should be between {FIRST_YEAR_AVAILABLE} and {NEXT_YEAR}"
+        )
 
     for i in range(1, 13):
-        file = RAW_DATA_FOLDER / f"yellow_tripdata_{year}-{i:02d}.parquet"
+        file = RAW_DATA_FOLDER / str(year) / f"yellow_tripdata_{year}-{i:02d}.parquet"
+        file.parent.mkdir(parents=True, exist_ok=True)
 
         if not file.exists() or not is_valid_file(file, year, i):
             print(f"Downloading the file for {year}-{i:02d}")
-            urlretrieve(
-                f"https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{year}-{i:02d}.parquet",
-                file,
-            )
+            try:
+                urlretrieve(
+                    f"https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{year}-{i:02d}.parquet",
+                    file,
+                )
+            except HTTPError as e:
+                if e.code == 404:
+                    print(f"Data for {year}-{i:02d} not yet available, skipping")
+                else:
+                    raise
         else:
             print(f"The {year}-{i:02d} file already exists - skipping")
 
 
-import calendar
-
-
-def is_valid_file(file: Path, year: int, month: int) -> bool:
-    try:
-        df = pd.read_parquet(file, columns=["tpep_pickup_datetime"])
-        last_day = calendar.monthrange(year, month)[1]
-        expected_last = pd.Timestamp(year=year, month=month, day=last_day)
-        return df["tpep_pickup_datetime"].max().normalize() >= expected_last
-    except Exception:
-        return False
-
-
-def load_and_clean(path: Path) -> pd.DataFrame:
+def load_and_clean(
+    path: Path, year: int | None = None, month: int | None = None
+) -> pd.DataFrame:
     dfs: list[pd.DataFrame] = []
 
-    for file in list(path.glob("yellow_tripdata_*.parquet")):
-        parts = file.stem.split("_")
-        year, month = parts[2].split("-")
+    for file in path.rglob("yellow_tripdata_*.parquet"):
+        file_year, file_month = map(int, file.stem.split("_")[2].split("-"))
+
+        if year is not None and file_year != year:
+            continue
+        if month is not None and file_month != month:
+            continue
 
         df = pd.read_parquet(file)
         df = df[
-            (df["tpep_pickup_datetime"].dt.year == int(year))
-            & (df["tpep_pickup_datetime"].dt.month == int(month))
+            (df["tpep_pickup_datetime"].dt.year == file_year)
+            & (df["tpep_pickup_datetime"].dt.month == file_month)
         ]
         df = df[(df["trip_distance"] > 0) & (df["fare_amount"] > 0)]
 
         dfs.append(df)
         print(f"{file} was successfully processed")
+
+    if not dfs:
+        raise ValueError(f"No parquet files found for year={year}, month={month}")
 
     return pd.concat(dfs, ignore_index=True)
 
@@ -81,7 +86,6 @@ if __name__ == "__main__":
     demand = build_demand_table(df)
     print(demand.head())
 
-    output = ROOT / "data" / "demand.parquet"
-    demand.to_parquet(output, index=False)
-    print(demand["trip_count"].describe())
-    print(f"Saved {len(demand)} rows to {output}")
+    demand.to_parquet(DEMAND_DATA, index=False)
+    print(demand[DEMAND_TARGET].describe())
+    print(f"Saved {len(demand)} rows to {DEMAND_DATA}")

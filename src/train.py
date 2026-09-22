@@ -3,12 +3,11 @@ import mlflow
 import pandas as pd
 import joblib
 from pathlib import Path
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import mean_absolute_percentage_error
 from xgboost import XGBRegressor
+from sklearn.model_selection import GridSearchCV
+from .utils import predict_and_evaluate, get_features_and_target
+from .config import ROOT, DEMAND_DATA, MODEL_PATH, DEMAND_FEATURES, DEMAND_TARGET
 
-ROOT = Path(__file__).parent.parent
-DEMAND_DATA = ROOT / "data" / "demand.parquet"
 os.environ["MLFLOW_ARTIFACT_ROOT"] = str(ROOT / "mlflow_artifacts")
 
 
@@ -26,11 +25,8 @@ def split_data(
     train = demand[demand["pickup_hour_ts"] < cutoff]
     test = demand[demand["pickup_hour_ts"] >= cutoff]
 
-    features = ["PULocationID", "pickup_hour", "pickup_dow", "pickup_week"]
-    X_train = train[features]
-    y_train = train["trip_count"]
-    X_test = test[features]
-    y_test = test["trip_count"]
+    X_train, y_train = get_features_and_target(train, DEMAND_FEATURES, DEMAND_TARGET)
+    X_test, y_test = get_features_and_target(test, DEMAND_FEATURES, DEMAND_TARGET)
 
     print("Data split complete")
 
@@ -66,27 +62,25 @@ def tune_model(X_train, y_train):
 
 def save_model(model: XGBRegressor, path: Path) -> None:
     joblib.dump(model, path)
+    print(f"Model saved to {MODEL_PATH}")
 
 
-if __name__ == "__main__":
-    demand = load_data()
-    X_train, X_test, y_train, y_test = split_data(demand)
-    print(X_train.shape, X_test.shape)
-
-    model = train_model(X_train, y_train)
-    # print(model.get_params())
-    predictions = model.predict(X_test)
-    mape = mean_absolute_percentage_error(y_test, predictions)
-    print(f"MAPE: {mape:.1f} trips")
-
-    model_path = ROOT / "models" / "xgb_demand.joblib"
-    model_path.parent.mkdir(exist_ok=True)
-    save_model(model, model_path)
-    print(f"Model saved to {model_path}")
-
-    demand = pd.read_parquet("data/demand.parquet")
-    print(demand["trip_count"].describe())
-
+def run_mlflow():
     mlflow.set_tracking_uri("sqlite:///mlflow.db")
     runs = mlflow.search_runs()
     print(runs[["metrics.mae", "params.n_estimators", "params.learning_rate"]])
+
+
+def run_training_pipeline() -> None:
+    demand = load_data()
+    X_train, X_test, y_train, y_test = split_data(demand)
+    model = train_model(X_train, y_train)
+    mae, mape = predict_and_evaluate(model, X_test, y_test)
+
+    MODEL_PATH.parent.mkdir(exist_ok=True)
+    save_model(model, MODEL_PATH)
+
+
+if __name__ == "__main__":
+    run_training_pipeline()
+    run_mlflow()
