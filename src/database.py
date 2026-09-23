@@ -1,4 +1,12 @@
-from sqlalchemy import create_engine, Column, Integer, Float, DateTime
+from sqlalchemy import (
+    ForeignKey,
+    create_engine,
+    Column,
+    Integer,
+    Float,
+    DateTime,
+    String,
+)
 from sqlalchemy.orm import declarative_base
 from datetime import datetime, timezone
 
@@ -10,6 +18,9 @@ class Prediction(Base):
 
     id = Column(Integer, primary_key=True)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    model_version_id = Column(
+        Integer, ForeignKey("model_versions.id", ondelete="CASCADE")
+    )
     zone_id = Column(Integer)
     hour = Column(Integer)
     day_of_week = Column(Integer)
@@ -22,6 +33,7 @@ class ModelVersion(Base):
 
     id = Column(Integer, primary_key=True)
     trained_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    name = Column(String)
     mae = Column(Float)
     mape = Column(Float)
     n_estimators = Column(Integer)

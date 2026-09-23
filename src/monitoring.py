@@ -1,5 +1,7 @@
 import logging
 import joblib
+import pandas as pd
+from pathlib import Path
 from .features import (
     download_data,
     load_and_clean,
@@ -7,9 +9,11 @@ from .features import (
 )
 from .utils import predict_and_evaluate, get_features_and_target
 from .config import (
-    MODEL_PATH,
+    MODEL_PATH_A,
+    MODEL_PATH_B,
     RAW_DATA_FOLDER,
-    DEMAND_FEATURES,
+    DEMAND_FEATURES_A,
+    DEMAND_FEATURES_B,
     DEMAND_TARGET,
     MAE_THRESHOLD,
     MAPE_THRESHOLD,
@@ -26,12 +30,23 @@ def compare_predictions(mae: float, mape: float) -> None:
         run_training_pipeline()
 
 
+def monitor_ab_test_version(
+    demand: pd.DataFrame,
+    demand_features: list[str],
+    demand_target: str,
+    model_path: Path,
+):
+    X, y = get_features_and_target(demand, demand_features, demand_target)
+    model = joblib.load(model_path)
+    mae, mape = predict_and_evaluate(model, X, y)
+    compare_predictions(mae, mape)
+
+
 if __name__ == "__main__":
     setup_logging()
     download_data(2025)
     df = load_and_clean(RAW_DATA_FOLDER, 2025, 1)
     demand = build_demand_table(df)
-    X, y = get_features_and_target(demand, DEMAND_FEATURES, DEMAND_TARGET)
-    model = joblib.load(MODEL_PATH)
-    mae, mape = predict_and_evaluate(model, X, y)
-    compare_predictions(mae, mape)
+
+    monitor_ab_test_version(demand, DEMAND_FEATURES_A, DEMAND_TARGET, MODEL_PATH_A)
+    monitor_ab_test_version(demand, DEMAND_FEATURES_B, DEMAND_TARGET, MODEL_PATH_B)

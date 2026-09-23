@@ -83,6 +83,7 @@ def build_demand_table(df: pd.DataFrame) -> pd.DataFrame:
     demand["pickup_hour"] = demand["pickup_hour_ts"].dt.hour  # 11
     demand["pickup_dow"] = demand["pickup_hour_ts"].dt.dayofweek  # 2 (Wednesday)
     demand["pickup_week"] = demand["pickup_hour_ts"].dt.isocalendar().week.astype(int)
+    demand["pickup_is_weekend"] = demand["pickup_dow"] >= 5
 
     return demand
 
