@@ -10,7 +10,7 @@ DB_URL = os.getenv(
     "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/nyc_taxi"
 )
 
-MODEL_PATH = ROOT / "models" / "xgb_demand.joblib"
+MODEL_PATH = Path(os.getenv("MODEL_PATH", str(ROOT / "models" / "xgb_demand.joblib")))
 RAW_DATA_FOLDER = ROOT / "data" / "raw"
 DEMAND_DATA = ROOT / "data" / "processed" / "demand.parquet"
 

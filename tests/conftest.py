@@ -1,12 +1,15 @@
 import os
+from pathlib import Path
 
 # Must be set before any src imports so load_dotenv() doesn't override it
 os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+os.environ["MODEL_PATH"] = str(Path(__file__).parent / "models" / "xgb_demand.joblib")
 
 import joblib
 import pandas as pd
 import pytest
 from xgboost import XGBRegressor
+
 from src.config import MODEL_PATH
 
 
