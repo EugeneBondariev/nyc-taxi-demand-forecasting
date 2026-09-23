@@ -6,13 +6,23 @@ import joblib
 from pathlib import Path
 from xgboost import XGBRegressor
 from sklearn.model_selection import GridSearchCV
+from sqlalchemy.orm import Session
 from .utils import predict_and_evaluate, get_features_and_target
-from .config import ROOT, DEMAND_DATA, MODEL_PATH, DEMAND_FEATURES, DEMAND_TARGET
+from .config import (
+    ROOT,
+    DEMAND_DATA,
+    MODEL_PATH,
+    DEMAND_FEATURES,
+    DEMAND_TARGET,
+    DB_URL,
+)
+from .database import init_db, ModelVersion
 from .logger import setup_logging
 
 os.environ["MLFLOW_ARTIFACT_ROOT"] = str(ROOT / "mlflow_artifacts")
 
 logger = logging.getLogger(__name__)
+engine = init_db(DB_URL)
 
 
 def load_data() -> pd.DataFrame:
@@ -37,14 +47,18 @@ def split_data(
     return X_train, X_test, y_train, y_test
 
 
-def train_model(X_train: pd.DataFrame, y_train: pd.Series) -> XGBRegressor:
+def train_model(X_train: pd.DataFrame, y_train: pd.Series) -> tuple[XGBRegressor, dict]:
+    parameters = {"n_estimators": 300, "learning_rate": 0.05}
     model = XGBRegressor(
-        n_estimators=300, random_state=42, max_depth=9, learning_rate=0.05
+        n_estimators=parameters["n_estimators"],
+        random_state=42,
+        max_depth=9,
+        learning_rate=parameters["learning_rate"],
     )
     model.fit(X_train, y_train)
     logger.info("The model training complete")
 
-    return model
+    return model, parameters
 
 
 def tune_model(X_train, y_train):
@@ -69,6 +83,19 @@ def save_model(model: XGBRegressor, path: Path) -> None:
     logger.info(f"Model saved to {MODEL_PATH}")
 
 
+def save_to_database(mae: float, mape: float, parameters: dict):
+    with Session(engine) as session:
+        session.add(
+            ModelVersion(
+                mae=mae,
+                mape=mape,
+                n_estimators=parameters["n_estimators"],
+                learning_rate=parameters["learning_rate"],
+            )
+        )
+        session.commit()
+
+
 def run_mlflow():
     mlflow.set_tracking_uri("sqlite:///mlflow.db")
     runs = mlflow.search_runs()
@@ -78,11 +105,12 @@ def run_mlflow():
 def run_training_pipeline() -> None:
     demand = load_data()
     X_train, X_test, y_train, y_test = split_data(demand)
-    model = train_model(X_train, y_train)
+    model, parameters = train_model(X_train, y_train)
     mae, mape = predict_and_evaluate(model, X_test, y_test)
 
     MODEL_PATH.parent.mkdir(exist_ok=True)
     save_model(model, MODEL_PATH)
+    save_to_database(mae, mape, parameters)
 
 
 if __name__ == "__main__":

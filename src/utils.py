@@ -12,8 +12,8 @@ def predict_and_evaluate(
     model: XGBRegressor, X_test: pd.DataFrame, y_test: pd.Series
 ) -> tuple[float]:
     predictions = model.predict(X_test)
-    mae = mean_absolute_error(y_pred=predictions, y_true=y_test)
-    mape = mean_absolute_percentage_error(y_pred=predictions, y_true=y_test)
+    mae = round(mean_absolute_error(y_pred=predictions, y_true=y_test), 2)
+    mape = round(mean_absolute_percentage_error(y_pred=predictions, y_true=y_test), 2)
 
     logger.info(f"MAE: {mae:.1f} trips")
     logger.info(f"MAPE: {mape:.1%}")
