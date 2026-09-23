@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine, Column, Integer, Float, DateTime
-from sqlalchemy.orm import declarative_base, Session
+from sqlalchemy.orm import declarative_base
 from datetime import datetime, timezone
 
 Base = declarative_base()

@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: nyc_taxi
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.1.0
+    command: mlflow server --host 0.0.0.0 --port 5000
+    ports:
+      - '5000:5000'
+    volumes:
+      - mlflow_data:/mlflow
+
+  api:
+    build: .
+    ports:
+      - '8000:8000'
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./models:/app/models
+      - ./src:/app/src
+    command: uvicorn src.api:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:
+  mlflow_data:
