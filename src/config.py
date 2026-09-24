@@ -17,10 +17,12 @@ MODEL_PATH_A = Path(os.getenv("MODEL_PATH_A", MODEL_FOLDER_A))
 MODEL_PATH_B = Path(os.getenv("MODEL_PATH_B", MODEL_FOLDER_B))
 
 RAW_DATA_FOLDER = ROOT / "data" / "raw"
+TAXI_DATA_FOLDER = RAW_DATA_FOLDER / "taxi"
+WEATHER_DATA_FOLDER = RAW_DATA_FOLDER / "weather"
 DEMAND_DATA = ROOT / "data" / "processed" / "demand.parquet"
 
 DEMAND_FEATURES_A = ["PULocationID", "pickup_hour", "pickup_dow", "pickup_week"]
-DEMAND_FEATURES_B = [*DEMAND_FEATURES_A, "pickup_is_weekend"]
+DEMAND_FEATURES_B = [*DEMAND_FEATURES_A, "temperature_2m", "precipitation", "snowfall"]
 DEMAND_TARGET = "trip_count"
 
 MAE_THRESHOLD = 12.0

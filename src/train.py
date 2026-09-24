@@ -4,7 +4,6 @@ import mlflow
 import pandas as pd
 import joblib
 from pathlib import Path
-from enum import Enum
 from xgboost import XGBRegressor
 from sklearn.model_selection import GridSearchCV
 from sqlalchemy.orm import Session
@@ -34,9 +33,7 @@ def load_data() -> pd.DataFrame:
 
 
 def split_data(
-    demand: pd.DataFrame,
-    demand_features: list[str],
-    demand_target: str,
+    demand: pd.DataFrame, demand_features: list[str], demand_target: str
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     min_ts = demand["pickup_hour_ts"].min()
     max_ts = demand["pickup_hour_ts"].max()
@@ -117,7 +114,9 @@ def process_ab_test_version(
     demand_target: str,
     model_path: Path,
     model_name: str,
+    min_trips: int,
 ):
+    demand = demand[demand["trip_count"] > min_trips]
     X_train, X_test, y_train, y_test = split_data(
         demand, demand_features, demand_target
     )
@@ -132,10 +131,20 @@ def process_ab_test_version(
 def run_training_pipeline() -> None:
     demand = load_data()
     process_ab_test_version(
-        demand, DEMAND_FEATURES_A, DEMAND_TARGET, MODEL_PATH_A, ModelName.A.value
+        demand,
+        DEMAND_FEATURES_A,
+        DEMAND_TARGET,
+        MODEL_PATH_A,
+        ModelName.A.value,
+        min_trips=0,
     )
     process_ab_test_version(
-        demand, DEMAND_FEATURES_B, DEMAND_TARGET, MODEL_PATH_B, ModelName.B.value
+        demand,
+        DEMAND_FEATURES_B,
+        DEMAND_TARGET,
+        MODEL_PATH_B,
+        ModelName.B.value,
+        min_trips=0,
     )
 
 

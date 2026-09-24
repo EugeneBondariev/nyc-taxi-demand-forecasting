@@ -1,3 +1,5 @@
+.PHONY: features train monitoring api frontend test
+
 include .env
 export
 
