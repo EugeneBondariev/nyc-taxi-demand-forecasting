@@ -14,6 +14,7 @@ from .config import (
     DEMAND_DATA,
     MODEL_PATH_A,
     MODEL_PATH_B,
+    ModelName,
     DEMAND_FEATURES_A,
     DEMAND_FEATURES_B,
     DEMAND_TARGET,
@@ -21,12 +22,6 @@ from .config import (
 )
 from .database import init_db, ModelVersion
 from .logger import setup_logging
-
-
-class ModelName(Enum):
-    A = "DEMAND_FEATURES_A"
-    B = "DEMAND_FEATURES_B"
-
 
 os.environ["MLFLOW_ARTIFACT_ROOT"] = str(ROOT / "mlflow_artifacts")
 
@@ -137,10 +132,10 @@ def process_ab_test_version(
 def run_training_pipeline() -> None:
     demand = load_data()
     process_ab_test_version(
-        demand, DEMAND_FEATURES_A, DEMAND_TARGET, MODEL_PATH_A, ModelName.A
+        demand, DEMAND_FEATURES_A, DEMAND_TARGET, MODEL_PATH_A, ModelName.A.value
     )
     process_ab_test_version(
-        demand, DEMAND_FEATURES_B, DEMAND_TARGET, MODEL_PATH_B, ModelName.B
+        demand, DEMAND_FEATURES_B, DEMAND_TARGET, MODEL_PATH_B, ModelName.B.value
     )
 
 

@@ -15,7 +15,15 @@ import pandas as pd
 import pytest
 from xgboost import XGBRegressor
 
-from src.config import MODEL_PATH_A, MODEL_PATH_B
+from src.config import MODEL_PATH_A, MODEL_PATH_B, ModelName
+from src.database import Base
+from src.train import engine, save_to_database
+
+
+@pytest.fixture(scope="session", autouse=True)
+def reset_db():
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -36,6 +44,12 @@ def test_models():
         y = pd.Series([10.0, 20.0, 30.0])
         model.fit(X, y)
         joblib.dump(model, path)
+        save_to_database(
+            mae=5,
+            mape=1.1,
+            parameters={"n_estimators": 300, "learning_rate": 0.05},
+            model_name=ModelName.B.value if extra else ModelName.A.value,
+        )
     yield
     MODEL_PATH_A.unlink(missing_ok=True)
     MODEL_PATH_B.unlink(missing_ok=True)

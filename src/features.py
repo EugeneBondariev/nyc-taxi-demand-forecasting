@@ -90,8 +90,7 @@ def build_demand_table(df: pd.DataFrame) -> pd.DataFrame:
 
 if __name__ == "__main__":
     setup_logging()
-    for year in range(FIRST_YEAR_AVAILABLE, NEXT_YEAR):
-        download_data(year)
+    download_data(2024)
     df = load_and_clean(RAW_DATA_FOLDER)
     demand = build_demand_table(df)
 

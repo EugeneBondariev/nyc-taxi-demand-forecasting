@@ -1,4 +1,5 @@
 import os
+from enum import Enum
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -24,3 +25,8 @@ DEMAND_TARGET = "trip_count"
 
 MAE_THRESHOLD = 12.0
 MAPE_THRESHOLD = 0.15
+
+
+class ModelName(Enum):
+    A = "DEMAND_FEATURES_A"
+    B = "DEMAND_FEATURES_B"
