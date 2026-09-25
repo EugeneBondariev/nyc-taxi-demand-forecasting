@@ -51,14 +51,14 @@ def train_fare_version(
 def run_training_pipeline() -> None:
     df = load_and_clean_taxi_data(TAXI_DATA_FOLDER)
 
-    # train_fare_version(
-    #     df,
-    #     FARE_AMOUNT_FEATURES_A,
-    #     FARE_TARGET,
-    #     train_linear,
-    #     MODEL_PATH_FARE_A,
-    #     ModelName.FARE_LINEAR.value,
-    # )
+    train_fare_version(
+        df,
+        FARE_AMOUNT_FEATURES_A,
+        FARE_TARGET,
+        train_linear,
+        MODEL_PATH_FARE_A,
+        ModelName.FARE_LINEAR.value,
+    )
     train_fare_version(
         df.sample(frac=0.1, random_state=42),
         FARE_AMOUNT_FEATURES_B,

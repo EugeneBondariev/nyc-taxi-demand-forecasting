@@ -89,7 +89,7 @@ def load_and_clean_taxi_data(
     if not dfs:
         raise ValueError(f"No parquet files found for year={year}, month={month}")
 
-    return pd.concat(dfs, ignore_index=True).sort_values("tpep_pickup_datetime")
+    return pd.concat(dfs, ignore_index=True)
 
 
 def clean_taxi_data(df: pd.DataFrame, year: int, month: int) -> pd.DataFrame:
@@ -97,8 +97,15 @@ def clean_taxi_data(df: pd.DataFrame, year: int, month: int) -> pd.DataFrame:
         (df["tpep_pickup_datetime"].dt.year == year)
         & (df["tpep_pickup_datetime"].dt.month == month)
     ]
+
     df = df[(df["trip_distance"] > 0) & (df["fare_amount"] > 0)]
+    df = df[(df["fare_amount"] <= 150) & (df["trip_distance"] <= 40)]
     df[["Airport_fee", "extra"]] = df[["Airport_fee", "extra"]].fillna(0)
+
+    df["trip_duration"] = (
+        df["tpep_dropoff_datetime"] - df["tpep_pickup_datetime"]
+    ).dt.total_seconds() / 60
+
     return df
 
 
@@ -154,6 +161,7 @@ def add_weather_data(taxi_df: pd.DataFrame, weather_df: pd.DataFrame) -> pd.Data
 
 def populate_demand_history(demand: pd.DataFrame) -> None:
     from .database import Base
+
     engine = init_db(DB_URL)
     DemandHistory.__table__.drop(engine, checkfirst=True)
     Base.metadata.create_all(engine)
