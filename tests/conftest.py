@@ -48,7 +48,7 @@ def test_models():
             mae=5,
             mape=1.1,
             parameters={"n_estimators": 300, "learning_rate": 0.05},
-            model_name=ModelName.B.value if extra else ModelName.A.value,
+            model_name=ModelName.DEMAND_LSTM.value if extra else ModelName.DEMAND_XGB.value,
         )
     yield
     MODEL_PATH_A.unlink(missing_ok=True)

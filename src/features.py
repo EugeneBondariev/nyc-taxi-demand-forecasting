@@ -5,10 +5,16 @@ from urllib.request import urlretrieve
 from urllib.error import HTTPError
 from pathlib import Path
 from datetime import datetime
-from sqlalchemy import insert, text
+from sqlalchemy import insert
 from sqlalchemy.orm import Session
 from .utils import is_valid_file
-from .config import TAXI_DATA_FOLDER, WEATHER_DATA_FOLDER, DEMAND_DATA, DEMAND_TARGET, DB_URL
+from .config import (
+    TAXI_DATA_FOLDER,
+    WEATHER_DATA_FOLDER,
+    DEMAND_DATA,
+    DEMAND_TARGET,
+    DB_URL,
+)
 from .database import init_db, DemandHistory
 from .logger import setup_logging
 
@@ -83,7 +89,7 @@ def load_and_clean_taxi_data(
     if not dfs:
         raise ValueError(f"No parquet files found for year={year}, month={month}")
 
-    return pd.concat(dfs, ignore_index=True)
+    return pd.concat(dfs, ignore_index=True).sort_values("tpep_pickup_datetime")
 
 
 def clean_taxi_data(df: pd.DataFrame, year: int, month: int) -> pd.DataFrame:
@@ -91,7 +97,9 @@ def clean_taxi_data(df: pd.DataFrame, year: int, month: int) -> pd.DataFrame:
         (df["tpep_pickup_datetime"].dt.year == year)
         & (df["tpep_pickup_datetime"].dt.month == month)
     ]
-    return df[(df["trip_distance"] > 0) & (df["fare_amount"] > 0)]
+    df = df[(df["trip_distance"] > 0) & (df["fare_amount"] > 0)]
+    df[["Airport_fee", "extra"]] = df[["Airport_fee", "extra"]].fillna(0)
+    return df
 
 
 def load_and_clean_weather_data(path: Path):
@@ -145,14 +153,27 @@ def add_weather_data(taxi_df: pd.DataFrame, weather_df: pd.DataFrame) -> pd.Data
 
 
 def populate_demand_history(demand: pd.DataFrame) -> None:
+    from .database import Base
     engine = init_db(DB_URL)
+    DemandHistory.__table__.drop(engine, checkfirst=True)
+    Base.metadata.create_all(engine)
     records = (
-        demand[["PULocationID", "pickup_hour_ts", "trip_count", "pickup_hour", "pickup_dow", "temperature_2m", "precipitation", "snowfall"]]
+        demand[
+            [
+                "PULocationID",
+                "pickup_hour_ts",
+                "trip_count",
+                "pickup_hour",
+                "pickup_dow",
+                "temperature_2m",
+                "precipitation",
+                "snowfall",
+            ]
+        ]
         .rename(columns={"PULocationID": "zone_id"})
         .to_dict("records")
     )
     with Session(engine) as session:
-        session.execute(text("DELETE FROM demand_history"))
         session.execute(insert(DemandHistory), records)
         session.commit()
     logger.info(f"Populated demand_history with {len(records)} rows")

@@ -9,15 +9,12 @@ from sqlalchemy.orm import Session
 from .config import DEMAND_DATA, MODEL_PATH_LSTM, ModelName, DB_URL
 from .database import init_db, ModelVersion
 from .logger import setup_logging
+from .utils import load_data
 
 logger = logging.getLogger(__name__)
 engine = init_db(DB_URL)
 
 WINDOW_SIZE = 24
-
-
-def load_data() -> pd.DataFrame:
-    return pd.read_parquet(DEMAND_DATA)
 
 
 def build_sequences(
@@ -110,12 +107,12 @@ def save_model(model: LSTMModel, path: Path) -> None:
 
 def save_to_database(mae: float) -> None:
     with Session(engine) as session:
-        session.add(ModelVersion(name=ModelName.B.value, mae=mae))
+        session.add(ModelVersion(name=ModelName.DEMAND_LSTM.value, mae=mae))
         session.commit()
 
 
 def run_training_pipeline() -> None:
-    demand = load_data()
+    demand = load_data(DEMAND_DATA)
     X_train, X_test, y_train, y_test = build_sequences(demand)
     model = train_model(X_train, y_train)
     mae = evaluate(model, X_test, y_test)

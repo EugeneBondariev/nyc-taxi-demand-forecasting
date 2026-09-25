@@ -36,12 +36,12 @@ async def lifespan(_: FastAPI):
     with Session(engine) as session:
         model_a_version_id = session.execute(
             select(ModelVersion)
-            .where(ModelVersion.name == ModelName.A.value)
+            .where(ModelVersion.name == ModelName.DEMAND_XGB.value)
             .order_by(ModelVersion.trained_at.desc())
         ).scalars().first().id
         model_b_version_id = session.execute(
             select(ModelVersion)
-            .where(ModelVersion.name == ModelName.B.value)
+            .where(ModelVersion.name == ModelName.DEMAND_LSTM.value)
             .order_by(ModelVersion.trained_at.desc())
         ).scalars().first().id
     yield

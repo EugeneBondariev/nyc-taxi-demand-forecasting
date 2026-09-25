@@ -1,4 +1,4 @@
-.PHONY: features train monitoring api frontend test
+.PHONY: features train train-lstm train-fare monitoring api frontend test
 
 include .env
 export
@@ -13,6 +13,9 @@ train:
 
 train-lstm:
 	DATABASE_URL=$(DATABASE_URL) C:/Python313/python.exe -m src.train_lstm
+
+train-fare:
+	DATABASE_URL=$(DATABASE_URL) C:/Python313/python.exe -m src.train_fare
 
 monitoring:
 	DATABASE_URL=$(DATABASE_URL) C:/Python313/python.exe -m src.monitoring
