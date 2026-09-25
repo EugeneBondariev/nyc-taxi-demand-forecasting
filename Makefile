@@ -11,6 +11,9 @@ features:
 train:
 	DATABASE_URL=$(DATABASE_URL) C:/Python313/python.exe -m src.train
 
+train-lstm:
+	DATABASE_URL=$(DATABASE_URL) C:/Python313/python.exe -m src.train_lstm
+
 monitoring:
 	DATABASE_URL=$(DATABASE_URL) C:/Python313/python.exe -m src.monitoring
 

@@ -12,9 +12,8 @@ DB_URL = os.getenv(
 )
 
 MODEL_FOLDER_A = str(ROOT / "models" / "xgb_demand_a.joblib")
-MODEL_FOLDER_B = str(ROOT / "models" / "xgb_demand_b.joblib")
 MODEL_PATH_A = Path(os.getenv("MODEL_PATH_A", MODEL_FOLDER_A))
-MODEL_PATH_B = Path(os.getenv("MODEL_PATH_B", MODEL_FOLDER_B))
+MODEL_PATH_LSTM = ROOT / "models" / "lstm_demand.pt"
 
 RAW_DATA_FOLDER = ROOT / "data" / "raw"
 TAXI_DATA_FOLDER = RAW_DATA_FOLDER / "taxi"
@@ -22,13 +21,12 @@ WEATHER_DATA_FOLDER = RAW_DATA_FOLDER / "weather"
 DEMAND_DATA = ROOT / "data" / "processed" / "demand.parquet"
 
 DEMAND_FEATURES_A = ["PULocationID", "pickup_hour", "pickup_dow", "pickup_week"]
-DEMAND_FEATURES_B = [*DEMAND_FEATURES_A, "temperature_2m", "precipitation", "snowfall"]
 DEMAND_TARGET = "trip_count"
 
-MAE_THRESHOLD = 12.0
+MAE_THRESHOLD = 7
 MAPE_THRESHOLD = 0.15
 
 
 class ModelName(Enum):
-    A = "DEMAND_FEATURES_A"
-    B = "DEMAND_FEATURES_B"
+    A = "xgboost"
+    B = "lstm"

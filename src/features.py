@@ -5,8 +5,11 @@ from urllib.request import urlretrieve
 from urllib.error import HTTPError
 from pathlib import Path
 from datetime import datetime
+from sqlalchemy import insert, text
+from sqlalchemy.orm import Session
 from .utils import is_valid_file
-from .config import TAXI_DATA_FOLDER, WEATHER_DATA_FOLDER, DEMAND_DATA, DEMAND_TARGET
+from .config import TAXI_DATA_FOLDER, WEATHER_DATA_FOLDER, DEMAND_DATA, DEMAND_TARGET, DB_URL
+from .database import init_db, DemandHistory
 from .logger import setup_logging
 
 FIRST_YEAR_AVAILABLE = 2009
@@ -141,6 +144,20 @@ def add_weather_data(taxi_df: pd.DataFrame, weather_df: pd.DataFrame) -> pd.Data
     return demand
 
 
+def populate_demand_history(demand: pd.DataFrame) -> None:
+    engine = init_db(DB_URL)
+    records = (
+        demand[["PULocationID", "pickup_hour_ts", "trip_count", "pickup_hour", "pickup_dow", "temperature_2m", "precipitation", "snowfall"]]
+        .rename(columns={"PULocationID": "zone_id"})
+        .to_dict("records")
+    )
+    with Session(engine) as session:
+        session.execute(text("DELETE FROM demand_history"))
+        session.execute(insert(DemandHistory), records)
+        session.commit()
+    logger.info(f"Populated demand_history with {len(records)} rows")
+
+
 if __name__ == "__main__":
     setup_logging()
     download_taxi_data(TESTED_YEAR)
@@ -151,6 +168,7 @@ if __name__ == "__main__":
 
     demand = build_demand_table(taxi_data, weather_data)
     demand.to_parquet(DEMAND_DATA, index=False)
+    populate_demand_history(demand)
 
     logger.info(demand[DEMAND_TARGET].describe())
     logger.info(f"Saved {len(demand)} rows to {DEMAND_DATA}")

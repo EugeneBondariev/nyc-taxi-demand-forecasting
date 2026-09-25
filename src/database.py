@@ -40,6 +40,20 @@ class ModelVersion(Base):
     learning_rate = Column(Float)
 
 
+class DemandHistory(Base):
+    __tablename__ = "demand_history"
+
+    id = Column(Integer, primary_key=True)
+    zone_id = Column(Integer, nullable=False, index=True)
+    pickup_hour_ts = Column(DateTime, nullable=False)
+    trip_count = Column(Float, nullable=False)
+    pickup_hour = Column(Integer, nullable=False)
+    pickup_dow = Column(Integer, nullable=False)
+    temperature_2m = Column(Float)
+    precipitation = Column(Float)
+    snowfall = Column(Float)
+
+
 def get_engine(db_url: str):
     return create_engine(db_url)
 

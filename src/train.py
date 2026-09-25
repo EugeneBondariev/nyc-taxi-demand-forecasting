@@ -12,13 +12,12 @@ from .config import (
     ROOT,
     DEMAND_DATA,
     MODEL_PATH_A,
-    MODEL_PATH_B,
     ModelName,
     DEMAND_FEATURES_A,
-    DEMAND_FEATURES_B,
     DEMAND_TARGET,
     DB_URL,
 )
+from .train_lstm import run_training_pipeline as run_lstm_pipeline
 from .database import init_db, ModelVersion
 from .logger import setup_logging
 
@@ -138,14 +137,7 @@ def run_training_pipeline() -> None:
         ModelName.A.value,
         min_trips=0,
     )
-    process_ab_test_version(
-        demand,
-        DEMAND_FEATURES_B,
-        DEMAND_TARGET,
-        MODEL_PATH_B,
-        ModelName.B.value,
-        min_trips=0,
-    )
+    run_lstm_pipeline()
 
 
 if __name__ == "__main__":
