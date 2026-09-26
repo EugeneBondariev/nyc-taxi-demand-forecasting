@@ -1,6 +1,0 @@
-outs:
-- md5: fda45ab1a03090b103e3c51e5f1085bc.dir
-  size: 21744541
-  nfiles: 5
-  hash: md5
-  path: models

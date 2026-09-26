@@ -2,6 +2,8 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
 RUN pip install --no-cache-dir \
     fastapi==0.141.1 \
     uvicorn==0.53.0 \
@@ -13,7 +15,6 @@ RUN pip install --no-cache-dir \
     joblib==1.6.0 \
     scikit-learn==1.9.1 \
     xgboost==3.4.1 \
-    torch \
     python-dotenv==1.2.3 \
     colorlog==6.12.0
 

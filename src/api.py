@@ -34,16 +34,19 @@ async def lifespan(_: FastAPI):
     logger.info("Models loaded successfully")
     engine = init_db(DB_URL)
     with Session(engine) as session:
-        model_a_version_id = session.execute(
+        row_a = session.execute(
             select(ModelVersion)
             .where(ModelVersion.name == ModelName.DEMAND_XGB.value)
             .order_by(ModelVersion.trained_at.desc())
-        ).scalars().first().id
-        model_b_version_id = session.execute(
+        ).scalars().first()
+        model_a_version_id = row_a.id if row_a else None
+
+        row_b = session.execute(
             select(ModelVersion)
             .where(ModelVersion.name == ModelName.DEMAND_LSTM.value)
             .order_by(ModelVersion.trained_at.desc())
-        ).scalars().first().id
+        ).scalars().first()
+        model_b_version_id = row_b.id if row_b else None
     yield
 
 
