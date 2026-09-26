@@ -124,6 +124,7 @@ def run_training_pipeline() -> None:
         mae,
         LSTM_FEATURES,
         {"epochs": 3, "batch_size": 512, "lr": 0.001, "window_size": WINDOW_SIZE, "hidden_size": 64, "num_layers": 2},
+        experiment="demand",
     )
     save_to_database(mae)
 

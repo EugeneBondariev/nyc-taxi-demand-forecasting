@@ -50,7 +50,7 @@ def process_ab_test_version(
     )
     model, parameters = train_xgboost(X_train, y_train)
     mae, mape = predict_and_evaluate(model, X_test, y_test)
-    log_to_mlflow(model_name, mae, demand_features, parameters, mape)
+    log_to_mlflow(model_name, mae, demand_features, parameters, mape, experiment="demand")
     save_model(model, model_path)
     save_to_database(mae, mape, parameters, model_name, engine)
 

@@ -11,6 +11,7 @@ RUNS = [
     # LSTM: zone-based split (original, no time features)
     {
         "run_name": "demand_lstm",
+        "experiment": "demand",
         "params": {
             "split": "zone-based",
             "window_size": 24,
@@ -24,6 +25,7 @@ RUNS = [
     # LSTM: switched to time-based split
     {
         "run_name": "demand_lstm",
+        "experiment": "demand",
         "params": {
             "split": "time-based",
             "window_size": 24,
@@ -37,6 +39,7 @@ RUNS = [
     # LSTM: added pickup_hour and pickup_dow
     {
         "run_name": "demand_lstm",
+        "experiment": "demand",
         "params": {
             "split": "time-based",
             "window_size": 24,
@@ -50,6 +53,7 @@ RUNS = [
     # LSTM: added weather features (current model B)
     {
         "run_name": "demand_lstm",
+        "experiment": "demand",
         "params": {
             "split": "time-based",
             "window_size": 24,
@@ -70,6 +74,7 @@ RUNS = [
     # Fare linear: before trip_duration
     {
         "run_name": "fare_linear",
+        "experiment": "fare",
         "params": {},
         "metrics": {"mae": 9.60, "mape": 1.14},
         "features": ["trip_distance", "Airport_fee", "extra"],
@@ -77,6 +82,7 @@ RUNS = [
     # Fare linear: after trip_duration (current model A)
     {
         "run_name": "fare_linear",
+        "experiment": "fare",
         "params": {},
         "metrics": {"mae": 4.43, "mape": 0.86},
         "features": ["trip_distance", "Airport_fee", "extra", "trip_duration"],
@@ -84,6 +90,7 @@ RUNS = [
     # Fare XGBoost: before trip_duration
     {
         "run_name": "fare_xgboost",
+        "experiment": "fare",
         "params": {
             "n_estimators": 300,
             "learning_rate": 0.05,
@@ -102,6 +109,7 @@ RUNS = [
     # Fare XGBoost: after trip_duration (current model B)
     {
         "run_name": "fare_xgboost",
+        "experiment": "fare",
         "params": {
             "n_estimators": 300,
             "learning_rate": 0.05,
@@ -129,6 +137,7 @@ if __name__ == "__main__":
             params=run["params"],
             mape=run["metrics"].get("mape"),
             tags={"source": "historical"},
+            experiment=run["experiment"],
         )
 
     print(f"Logged {len(RUNS)} historical runs.")

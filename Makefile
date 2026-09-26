@@ -1,4 +1,4 @@
-.PHONY: features train train-lstm train-fare monitoring api frontend test mlflow
+.PHONY: features train train-lstm train-fare monitoring api frontend test mlflow airflow
 
 include .env
 export
@@ -33,3 +33,6 @@ test:
 
 mlflow:
 	docker compose up mlflow -d
+
+airflow:
+	docker compose up airflow-init airflow-webserver airflow-scheduler -d

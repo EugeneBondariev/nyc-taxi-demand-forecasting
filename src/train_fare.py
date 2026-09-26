@@ -2,7 +2,6 @@ import logging
 from collections.abc import Callable
 from pathlib import Path
 import pandas as pd
-from sqlalchemy.engine import Engine
 from .config import (
     TAXI_DATA_FOLDER,
     FARE_AMOUNT_FEATURES_A,
@@ -44,7 +43,7 @@ def train_fare_version(
     )
     model, params = model_fn(X_train, y_train, **model_kwargs)
     mae, mape = predict_and_evaluate(model, X_test, y_test)
-    log_to_mlflow(model_name, mae, features, params, mape)
+    log_to_mlflow(model_name, mae, features, params, mape, experiment="fare")
     model_path.parent.mkdir(exist_ok=True)
     save_model(model, model_path)
     save_to_database(mae, mape, params, model_name, engine)

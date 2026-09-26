@@ -102,7 +102,9 @@ def log_to_mlflow(
     params: dict,
     mape: float | None = None,
     tags: dict | None = None,
+    experiment: str = "default",
 ) -> None:
+    mlflow.set_experiment(experiment)
     with mlflow.start_run(run_name=model_name):
         mlflow.set_tag("mlflow.user", os.getenv("MLFLOW_USER", ""))
         mlflow.log_metric("mae", mae)
