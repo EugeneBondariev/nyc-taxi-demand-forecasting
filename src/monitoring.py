@@ -10,10 +10,8 @@ from .features import (
 from .utils import predict_and_evaluate, get_features_and_target
 from .config import (
     MODEL_PATH_A,
-    MODEL_PATH_B,
     TAXI_DATA_FOLDER,
     DEMAND_FEATURES_A,
-    DEMAND_FEATURES_B,
     DEMAND_TARGET,
     MAE_THRESHOLD,
     MAPE_THRESHOLD,
@@ -47,6 +45,4 @@ if __name__ == "__main__":
     download_taxi_data(2025)
     df = load_and_clean_taxi_data(TAXI_DATA_FOLDER, 2025, 1)
     demand = build_demand_table(df)
-
     monitor_ab_test_version(demand, DEMAND_FEATURES_A, DEMAND_TARGET, MODEL_PATH_A)
-    monitor_ab_test_version(demand, DEMAND_FEATURES_B, DEMAND_TARGET, MODEL_PATH_B)

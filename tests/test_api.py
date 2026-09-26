@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from src.api import app
 
@@ -14,15 +15,16 @@ def test_health():
 
 def test_predict_returns_valid_response():
     with TestClient(app) as client:
-        response = client.post(
-            "/predict",
-            json={
-                "zone_id": 161,
-                "hour": 18,
-                "day_of_week": 2,
-                "week": 10,
-            },
-        )
+        with patch("src.api.random.random", return_value=0.9):  # always route to model A
+            response = client.post(
+                "/predict",
+                json={
+                    "zone_id": 161,
+                    "hour": 18,
+                    "day_of_week": 2,
+                    "week": 10,
+                },
+            )
         assert response.status_code == 200
         data = response.json()
         assert "predicted_trips" in data

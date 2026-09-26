@@ -13,7 +13,7 @@ DB_URL = os.getenv(
 
 MODEL_FOLDER_A = str(ROOT / "models" / "xgb_demand_a.joblib")
 MODEL_PATH_A = Path(os.getenv("MODEL_PATH_A", MODEL_FOLDER_A))
-MODEL_PATH_LSTM = ROOT / "models" / "lstm_demand.pt"
+MODEL_PATH_LSTM = Path(os.getenv("MODEL_PATH_LSTM", str(ROOT / "models" / "lstm_demand.pt")))
 MODEL_PATH_FARE_A = ROOT / "models" / "fare_linear.joblib"
 MODEL_PATH_FARE_B = ROOT / "models" / "fare_xgb.joblib"
 
