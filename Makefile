@@ -1,4 +1,4 @@
-.PHONY: features train train-lstm train-fare monitoring api frontend test mlflow airflow
+.PHONY: features train train-lstm train-fare monitoring api frontend test mlflow airflow dvc-push dvc-pull
 
 include .env
 export
@@ -36,3 +36,9 @@ mlflow:
 
 airflow:
 	docker compose up airflow-init airflow-webserver airflow-scheduler -d
+
+dvc-push:
+	$(PYTHON) -m dvc add data models && $(PYTHON) -m dvc push
+
+dvc-pull:
+	$(PYTHON) -m dvc pull
