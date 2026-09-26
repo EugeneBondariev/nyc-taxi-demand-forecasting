@@ -3,8 +3,6 @@ import os
 import mlflow
 import pandas as pd
 from pathlib import Path
-from xgboost import XGBRegressor
-from sklearn.model_selection import GridSearchCV
 from .utils import (
     predict_and_evaluate,
     load_data,
@@ -12,6 +10,7 @@ from .utils import (
     save_model,
     save_to_database,
     train_xgboost,
+    log_to_mlflow,
 )
 from .config import (
     ROOT,
@@ -33,7 +32,6 @@ engine = init_db(DB_URL)
 
 
 def run_mlflow() -> None:
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
     runs = mlflow.search_runs()
     logger.info(runs[["metrics.mae", "params.n_estimators", "params.learning_rate"]])
 
@@ -52,8 +50,7 @@ def process_ab_test_version(
     )
     model, parameters = train_xgboost(X_train, y_train)
     mae, mape = predict_and_evaluate(model, X_test, y_test)
-
-    model_path.parent.mkdir(exist_ok=True)
+    log_to_mlflow(model_name, mae, demand_features, parameters, mape)
     save_model(model, model_path)
     save_to_database(mae, mape, parameters, model_name, engine)
 

@@ -23,6 +23,7 @@ from .utils import (
     save_to_database,
     train_xgboost,
     train_linear,
+    log_to_mlflow,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ def train_fare_version(
     )
     model, params = model_fn(X_train, y_train, **model_kwargs)
     mae, mape = predict_and_evaluate(model, X_test, y_test)
+    log_to_mlflow(model_name, mae, features, params, mape)
     model_path.parent.mkdir(exist_ok=True)
     save_model(model, model_path)
     save_to_database(mae, mape, params, model_name, engine)

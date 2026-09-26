@@ -31,6 +31,8 @@ FARE_TARGET = "fare_amount"
 MAE_THRESHOLD = 7
 MAPE_THRESHOLD = 0.15
 
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+
 
 class ModelName(Enum):
     DEMAND_XGB = "demand_xgboost"

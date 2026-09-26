@@ -9,12 +9,13 @@ from sqlalchemy.orm import Session
 from .config import DEMAND_DATA, MODEL_PATH_LSTM, ModelName, DB_URL
 from .database import init_db, ModelVersion
 from .logger import setup_logging
-from .utils import load_data
+from .utils import load_data, log_to_mlflow
 
 logger = logging.getLogger(__name__)
 engine = init_db(DB_URL)
 
 WINDOW_SIZE = 24
+LSTM_FEATURES = ["trip_count", "pickup_hour", "pickup_dow", "temperature_2m", "precipitation", "snowfall"]
 
 
 def build_sequences(
@@ -24,7 +25,7 @@ def build_sequences(
 
     for _, group in demand.groupby("PULocationID"):
         group = group.sort_values("pickup_hour_ts")
-        features = group[["trip_count", "pickup_hour", "pickup_dow", "temperature_2m", "precipitation", "snowfall"]].values
+        features = group[LSTM_FEATURES].values
         counts = group["trip_count"].values
         cutoff = int(len(counts) * ratio)
 
@@ -48,7 +49,7 @@ class LSTMModel(nn.Module):
     def __init__(self, hidden_size: int = 64, num_layers: int = 2):
         super().__init__()
         self.lstm = nn.LSTM(
-            input_size=6,
+            input_size=len(LSTM_FEATURES),
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
@@ -118,6 +119,12 @@ def run_training_pipeline() -> None:
     mae = evaluate(model, X_test, y_test)
     MODEL_PATH_LSTM.parent.mkdir(exist_ok=True)
     save_model(model, MODEL_PATH_LSTM)
+    log_to_mlflow(
+        ModelName.DEMAND_LSTM.value,
+        mae,
+        LSTM_FEATURES,
+        {"epochs": 3, "batch_size": 512, "lr": 0.001, "window_size": WINDOW_SIZE, "hidden_size": 64, "num_layers": 2},
+    )
     save_to_database(mae)
 
 

@@ -1,16 +1,20 @@
+import os
 import joblib
+import mlflow
 import pandas as pd
 import calendar
 import logging
 from pathlib import Path
-from collections.abc import Callable
 from sklearn.base import RegressorMixin
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from xgboost import XGBRegressor
+from .config import MLFLOW_TRACKING_URI
 from .database import ModelVersion
+
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +93,26 @@ def save_model(model: RegressorMixin, path: Path) -> None:
     path.parent.mkdir(exist_ok=True)
     joblib.dump(model, path)
     logger.info(f"Model saved to {path}")
+
+
+def log_to_mlflow(
+    model_name: str,
+    mae: float,
+    features: list[str],
+    params: dict,
+    mape: float | None = None,
+    tags: dict | None = None,
+) -> None:
+    with mlflow.start_run(run_name=model_name):
+        mlflow.set_tag("mlflow.user", os.getenv("MLFLOW_USER", ""))
+        mlflow.log_metric("mae", mae)
+        if mape is not None:
+            mlflow.log_metric("mape", mape)
+        if params:
+            mlflow.log_params(params)
+        mlflow.log_param("features", ", ".join(features))
+        if tags:
+            mlflow.set_tags(tags)
 
 
 def save_to_database(

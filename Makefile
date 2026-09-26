@@ -1,9 +1,10 @@
-.PHONY: features train train-lstm train-fare monitoring api frontend test
+.PHONY: features train train-lstm train-fare monitoring api frontend test mlflow
 
 include .env
 export
 
 DATABASE_URL=postgresql://postgres:$(POSTGRES_PASSWORD)@localhost:5433/nyc_taxi
+PYTHONUTF8=1
 
 features:
 	DATABASE_URL=$(DATABASE_URL) C:/Python313/python.exe -m src.features
@@ -28,3 +29,6 @@ frontend:
 
 test:
 	C:/Python313/python.exe -m pytest tests/ -v
+
+mlflow:
+	docker compose up mlflow -d
