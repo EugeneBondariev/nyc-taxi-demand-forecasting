@@ -1,7 +1,8 @@
-import pandas as pd
 import numpy as np
-from src.utils import split_data
+import pandas as pd
+
 from src.config import DEMAND_FEATURES_A, DEMAND_TARGET
+from src.utils import split_data
 
 N_ROWS = 366  # days in the year of 2024
 
@@ -15,6 +16,7 @@ def make_demand_df(n_rows=N_ROWS):
             "pickup_hour": timestamps.hour,
             "pickup_dow": timestamps.dayofweek,
             "pickup_week": timestamps.isocalendar().week.astype(int),
+            "is_holiday": np.zeros(n_rows, dtype=int),
             "trip_count": np.random.randint(1, 100, n_rows),
         }
     )
@@ -39,7 +41,7 @@ def test_split_data_correct_columns():
 
 
 def test_split_data_no_leakage():
-    X_train, X_test, y_train, y_test = split_data(
+    X_train, X_test, _y_train, _y_test = split_data(
         make_demand_df(), DEMAND_FEATURES_A, DEMAND_TARGET, "pickup_hour_ts"
     )
     assert X_train.index.max() < X_test.index.min()

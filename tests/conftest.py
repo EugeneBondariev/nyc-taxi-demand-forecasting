@@ -35,6 +35,7 @@ def test_models():
         "pickup_hour": [0, 12, 18],
         "pickup_dow": [0, 3, 5],
         "pickup_week": [1, 26, 52],
+        "is_holiday": [0, 0, 1],
     })
     y = pd.Series([10.0, 20.0, 30.0])
     model_a.fit(X, y)

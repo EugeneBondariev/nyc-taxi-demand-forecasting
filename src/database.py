@@ -1,14 +1,15 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import (
-    ForeignKey,
-    create_engine,
     Column,
-    Integer,
-    Float,
     DateTime,
+    Float,
+    ForeignKey,
+    Integer,
     String,
+    create_engine,
 )
 from sqlalchemy.orm import declarative_base
-from datetime import datetime, timezone
 
 Base = declarative_base()
 
