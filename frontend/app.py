@@ -1,50 +1,31 @@
-import streamlit as st
-import httpx
+import os
 from datetime import datetime
 
-zone_id = st.slider("NYC Zone Id", 1, 265, 166)
+import httpx
+import streamlit as st
 
-hour = st.selectbox(
-    "Hour",
-    range(0, 24),
-    index=16,
-    placeholder="Select hour in range from 0 to 23",
+API_URL = os.getenv("API_URL", "http://localhost:8000")
+
+st.title("NYC Taxi Demand Forecast")
+
+zone_id = st.slider("NYC Zone ID", 1, 265, 166)
+prediction_time = st.datetime_input(
+    "Prediction time",
+    value=datetime.now().replace(minute=0, second=0, microsecond=0),
 )
-
-days_of_week = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-]
-
-day_of_week = st.selectbox(
-    "Day of Week",
-    days_of_week,
-    index=2,
-    placeholder="Select the day of week",
-)
-
-week = st.slider("Week Number", 1, 53, datetime.now().isocalendar().week)
+is_holiday = st.checkbox("Public holiday")
 
 if st.button("Get prediction"):
-    st.markdown("The request has been sent")
-    r = httpx.post(
-        "http://localhost:8000/predict",
-        json={
-            "zone_id": zone_id,
-            "hour": hour,
-            "day_of_week": days_of_week.index(day_of_week),
-            "week": week,
-        },
-    )
-
-    st.markdown(f"Trips prediction: **{r.json()["predicted_trips"]}**")
+    payload = {
+        "zone_id": zone_id,
+        "prediction_time": prediction_time.isoformat(),
+        "is_holiday": int(is_holiday),
+    }
+    r = httpx.post(f"{API_URL}/v1/predict", json=payload)
 
     if r.is_success:
+        st.markdown(f"Trips prediction: **{r.json()['predicted_trips']}**")
         st.badge("Success", icon=":material/check:", color="green")
     else:
+        st.error(f"Error {r.status_code}: {r.text}")
         st.badge("Failure", color="red")
