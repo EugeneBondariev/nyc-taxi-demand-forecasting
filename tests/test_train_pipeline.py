@@ -7,7 +7,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.api import app
-from src.config import DEMAND_FEATURES_A, DEMAND_FEATURES_V2, DEMAND_TARGET, ModelName
+from src.config import (
+    AIRPORT_ZONES,
+    DEMAND_FEATURES_A,
+    DEMAND_FEATURES_V2,
+    DEMAND_TARGET,
+    ModelName,
+)
 from src.database import Prediction
 from src.train import engine, process_ab_test_version
 
@@ -15,9 +21,10 @@ from src.train import engine, process_ab_test_version
 def _make_demand(n: int = 600) -> pd.DataFrame:
     rng = np.random.default_rng(42)
     ts = pd.date_range("2024-01-01", periods=n, freq="h")
+    zones = rng.integers(1, 10, n)
     return pd.DataFrame({
         "pickup_hour_ts": ts,
-        "PULocationID": rng.integers(1, 10, n),
+        "PULocationID": zones,
         "pickup_hour": ts.hour,
         "pickup_dow": ts.dayofweek,
         "pickup_week": ts.isocalendar().week.astype(int),
@@ -25,6 +32,7 @@ def _make_demand(n: int = 600) -> pd.DataFrame:
         "snowfall": rng.uniform(0, 2, n),
         "lag_24h": rng.integers(1, 100, n).astype(float),
         "lag_168h": rng.integers(1, 100, n).astype(float),
+        "is_airport": pd.Series(zones).isin(AIRPORT_ZONES).astype(int).to_numpy(),
         "trip_count": rng.integers(1, 100, n),
     })
 

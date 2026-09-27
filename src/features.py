@@ -11,6 +11,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from .config import (
+    AIRPORT_ZONES,
     DB_URL,
     DEMAND_DATA,
     DEMAND_TARGET,
@@ -196,6 +197,7 @@ def add_taxi_data(taxi_df: pd.DataFrame):
     demand["pickup_dow"] = demand["pickup_hour_ts"].dt.dayofweek  # 2 (Wednesday)
     demand["pickup_week"] = demand["pickup_hour_ts"].dt.isocalendar().week.astype(int)
     demand["pickup_is_weekend"] = demand["pickup_dow"] >= 5
+    demand["is_airport"] = demand["PULocationID"].isin(AIRPORT_ZONES).astype(int)
 
     return demand
 

@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import (
+    AIRPORT_ZONES,
     CONFORMAL_MARGIN_PATH,
     DB_URL,
     DEMAND_FEATURES_V2,
@@ -227,6 +228,7 @@ def _predict_logic(body: PredictionRequest) -> PredictionResponse:
             "snowfall": body.snowfall,
             "lag_24h": body.lag_24h,
             "lag_168h": body.lag_168h,
+            "is_airport": int(zone_id in AIRPORT_ZONES),
         }])[DEMAND_FEATURES_V2]
         prediction = model_a.predict(X)
         result = round(max(0.0, float(prediction[0])), 2)
@@ -309,6 +311,7 @@ def explain_v1(request: Request, body: ExplainRequest) -> ExplainResponse:
         "snowfall": body.snowfall,
         "lag_24h": lag_24h,
         "lag_168h": lag_168h,
+        "is_airport": int(body.zone_id in AIRPORT_ZONES),
     }])[DEMAND_FEATURES_V2]
     explainer = shap.TreeExplainer(model_a)
     shap_values = explainer(X)

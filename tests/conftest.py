@@ -31,7 +31,7 @@ def test_models():
 
     model_a = XGBRegressor(n_estimators=1, random_state=42)
     X = pd.DataFrame({
-        "PULocationID": [1, 2, 3],
+        "PULocationID": [1, 2, 132],
         "pickup_hour": [0, 12, 18],
         "pickup_dow": [0, 3, 5],
         "pickup_week": [1, 26, 52],
@@ -39,6 +39,7 @@ def test_models():
         "snowfall": [0.0, 0.0, 0.5],
         "lag_24h": [10.0, 20.0, 15.0],
         "lag_168h": [12.0, 18.0, 14.0],
+        "is_airport": [1, 0, 1],
     })
     y = pd.Series([10.0, 20.0, 30.0])
     model_a.fit(X, y)
