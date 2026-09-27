@@ -1,7 +1,9 @@
 import logging
 import os
+import tempfile
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import mlflow
 import pandas as pd
 import shap
@@ -39,11 +41,24 @@ def run_mlflow() -> None:
     logger.info(runs[["metrics.mae", "params.n_estimators", "params.learning_rate"]])
 
 
-def compute_shap_importances(model, X_train: pd.DataFrame) -> dict[str, float]:
+def compute_shap_importances(model, X_train: pd.DataFrame) -> tuple[dict[str, float], pd.DataFrame, "shap.Explanation"]:
     explainer = shap.TreeExplainer(model)
     sample = X_train.sample(min(500, len(X_train)), random_state=42)
-    values = explainer.shap_values(sample)
-    return {col: float(abs(values[:, i]).mean()) for i, col in enumerate(X_train.columns)}
+    shap_values = explainer(sample)
+    importances = {
+        col: float(abs(shap_values[:, i].values).mean())
+        for i, col in enumerate(X_train.columns)
+    }
+    return importances, sample, shap_values
+
+
+def log_shap_plot(shap_values: "shap.Explanation", sample: pd.DataFrame) -> None:
+    shap.summary_plot(shap_values, sample, show=False)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        plot_path = Path(tmpdir) / "shap_summary.png"
+        plt.savefig(plot_path, bbox_inches="tight", dpi=100)
+        plt.close()
+        mlflow.log_artifact(str(plot_path), artifact_path="shap")
 
 
 def process_ab_test_version(
@@ -60,11 +75,12 @@ def process_ab_test_version(
     )
     model, parameters = train_xgboost(X_train, y_train)
     mae, mape = predict_and_evaluate(model, X_test, y_test)
-    shap_importances = compute_shap_importances(model, X_train)
+    shap_importances, shap_sample, shap_values = compute_shap_importances(model, X_train)
     log_to_mlflow(
         model_name, mae, demand_features, parameters, mape,
         shap_importances=shap_importances, experiment="demand",
     )
+    log_shap_plot(shap_values, shap_sample)
     save_model(model, model_path)
     save_to_database(mae, mape, parameters, model_name, engine)
 
