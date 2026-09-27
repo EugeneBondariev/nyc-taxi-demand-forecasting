@@ -1,16 +1,18 @@
+import calendar
+import logging
 import os
+from pathlib import Path
+
 import joblib
 import mlflow
 import pandas as pd
-import calendar
-import logging
-from pathlib import Path
 from sklearn.base import RegressorMixin
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from xgboost import XGBRegressor
+
 from .config import MLFLOW_TRACKING_URI
 from .database import ModelVersion
 
@@ -42,7 +44,7 @@ def is_valid_file(file: Path, year: int, month: int) -> bool:
         last_day = calendar.monthrange(year, month)[1]
         expected_last = pd.Timestamp(year=year, month=month, day=last_day)
         return df["tpep_pickup_datetime"].max().normalize() >= expected_last
-    except Exception:
+    except Exception:  # noqa: BLE001 — any read/parse failure means the file is unusable
         return False
 
 
@@ -102,6 +104,7 @@ def log_to_mlflow(
     params: dict,
     mape: float | None = None,
     tags: dict | None = None,
+    shap_importances: dict[str, float] | None = None,
     experiment: str = "default",
 ) -> None:
     mlflow.set_experiment(experiment)
@@ -115,6 +118,8 @@ def log_to_mlflow(
         mlflow.log_param("features", ", ".join(features))
         if tags:
             mlflow.set_tags(tags)
+        if shap_importances:
+            mlflow.log_metrics({f"shap_{k}": v for k, v in shap_importances.items()})
 
 
 def save_to_database(

@@ -1,29 +1,32 @@
 import logging
 import os
+from pathlib import Path
+
 import mlflow
 import pandas as pd
-from pathlib import Path
-from .utils import (
-    predict_and_evaluate,
-    load_data,
-    split_data,
-    save_model,
-    save_to_database,
-    train_xgboost,
-    log_to_mlflow,
-)
+import shap
+
 from .config import (
-    ROOT,
+    DB_URL,
     DEMAND_DATA,
-    MODEL_PATH_A,
-    ModelName,
     DEMAND_FEATURES_A,
     DEMAND_TARGET,
-    DB_URL,
+    MODEL_PATH_A,
+    ROOT,
+    ModelName,
 )
-from .train_lstm import run_training_pipeline as run_lstm_pipeline
 from .database import init_db
 from .logger import setup_logging
+from .train_lstm import run_training_pipeline as run_lstm_pipeline
+from .utils import (
+    load_data,
+    log_to_mlflow,
+    predict_and_evaluate,
+    save_model,
+    save_to_database,
+    split_data,
+    train_xgboost,
+)
 
 os.environ["MLFLOW_ARTIFACT_ROOT"] = str(ROOT / "mlflow_artifacts")
 
@@ -34,6 +37,13 @@ engine = init_db(DB_URL)
 def run_mlflow() -> None:
     runs = mlflow.search_runs()
     logger.info(runs[["metrics.mae", "params.n_estimators", "params.learning_rate"]])
+
+
+def compute_shap_importances(model, X_train: pd.DataFrame) -> dict[str, float]:
+    explainer = shap.TreeExplainer(model)
+    sample = X_train.sample(min(500, len(X_train)), random_state=42)
+    values = explainer.shap_values(sample)
+    return {col: float(abs(values[:, i]).mean()) for i, col in enumerate(X_train.columns)}
 
 
 def process_ab_test_version(
@@ -50,7 +60,11 @@ def process_ab_test_version(
     )
     model, parameters = train_xgboost(X_train, y_train)
     mae, mape = predict_and_evaluate(model, X_test, y_test)
-    log_to_mlflow(model_name, mae, demand_features, parameters, mape, experiment="demand")
+    shap_importances = compute_shap_importances(model, X_train)
+    log_to_mlflow(
+        model_name, mae, demand_features, parameters, mape,
+        shap_importances=shap_importances, experiment="demand",
+    )
     save_model(model, model_path)
     save_to_database(mae, mape, parameters, model_name, engine)
 
