@@ -2,8 +2,6 @@
 
 Predicts hourly taxi trip demand by pickup zone in New York City using XGBoost and LSTM models, served via a REST API with A/B testing.
 
-**Live API:** https://uber-api.onrender.com
-
 ## Architecture
 
 ```
@@ -26,15 +24,15 @@ Airflow runs the full pipeline on the 1st of every month.
 
 ## Stack
 
-| Layer | Tool |
-|---|---|
-| Models | XGBoost, LSTM (PyTorch) |
-| API | FastAPI |
-| Orchestration | Apache Airflow (DockerOperator) |
-| Experiment tracking | MLflow |
-| Data versioning | DVC |
-| Database | PostgreSQL |
-| Containerization | Docker Compose |
+| Layer               | Tool                            |
+| ------------------- | ------------------------------- |
+| Models              | XGBoost, LSTM (PyTorch)         |
+| API                 | FastAPI                         |
+| Orchestration       | Apache Airflow (DockerOperator) |
+| Experiment tracking | MLflow                          |
+| Data versioning     | DVC                             |
+| Database            | PostgreSQL                      |
+| Containerization    | Docker Compose                  |
 
 ## Quick Start
 
@@ -69,6 +67,15 @@ POST /predict
 → { "predicted_trips": 42.3, ... }
 
 GET /health → { "status": "ok" }
+```
+
+## PySpark
+
+`src/features_spark.py` reimplements the feature pipeline using PySpark for scalability.
+Requires Java 11+ and (on Windows) `winutils.exe` — runs natively on Linux/Mac/CI.
+
+```bash
+make features-spark
 ```
 
 ## Retraining
