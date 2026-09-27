@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 from pathlib import Path
@@ -14,7 +13,6 @@ from .config import (
     DB_URL,
     DEMAND_FEATURES_V2,
     DEMAND_TARGET,
-    FEATURE_STATS_PATH,
     MAE_THRESHOLD,
     MAPE_THRESHOLD,
     MODEL_PATH_A,
@@ -34,39 +32,10 @@ from .features import (
 )
 from .logger import setup_logging
 from .train import run_training_pipeline
-from .utils import get_features_and_target, predict_and_evaluate
+from .utils import detect_feature_drift, get_features_and_target, predict_and_evaluate
 
 logger = logging.getLogger(__name__)
 engine = init_db(DB_URL)
-
-
-def _compute_psi(breakpoints: list[float], actual: np.ndarray) -> float:
-    bins = np.array(breakpoints, dtype=float)
-    bins[0], bins[-1] = -np.inf, np.inf
-    n_bins = len(bins) - 1
-    expected_pct = np.full(n_bins, 1.0 / n_bins)
-    actual_counts = np.histogram(actual, bins=bins)[0]
-    actual_pct = np.clip(actual_counts / max(len(actual), 1), 1e-6, None)
-    actual_pct = actual_pct / actual_pct.sum()
-    return float(np.sum((actual_pct - expected_pct) * np.log(actual_pct / expected_pct)))
-
-
-def detect_feature_drift(df: pd.DataFrame, features: list[str], threshold: float = 0.2) -> list[str]:
-    if not FEATURE_STATS_PATH.exists():
-        logger.info("No feature baseline — skipping drift check")
-        return []
-    with open(FEATURE_STATS_PATH) as f:
-        baseline = json.load(f)
-    drifted = []
-    for feat in features:
-        if feat not in baseline:
-            continue
-        col = df[feat].dropna().values.astype(float)
-        psi = _compute_psi(baseline[feat]["breakpoints"], col)
-        if psi > threshold:
-            logger.warning(f"Feature drift: {feat}  PSI={psi:.3f} > {threshold}")
-            drifted.append(feat)
-    return drifted
 
 
 def send_alert(message: str) -> None:

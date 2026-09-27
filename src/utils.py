@@ -52,12 +52,41 @@ def save_feature_baseline(df: pd.DataFrame, features: list[str]) -> None:
         col = df[feat].dropna().values.astype(float)
         baseline[feat] = {
             "breakpoints": np.percentile(col, np.linspace(0, 100, 11)).tolist(),
-            "n": int(len(col)),
+            "n": len(col),
         }
-    FEATURE_STATS_PATH.parent.mkdir(exist_ok=True)
+    ensure_parent(FEATURE_STATS_PATH)
     with open(FEATURE_STATS_PATH, "w") as f:
         json.dump(baseline, f)
     logger.info(f"Feature baseline saved → {FEATURE_STATS_PATH}")
+
+
+def _compute_psi(breakpoints: list[float], actual: np.ndarray) -> float:
+    bins = np.array(breakpoints, dtype=float)
+    bins[0], bins[-1] = -np.inf, np.inf
+    n_bins = len(bins) - 1
+    expected_pct = np.full(n_bins, 1.0 / n_bins)
+    actual_counts = np.histogram(actual, bins=bins)[0]
+    actual_pct = np.clip(actual_counts / max(len(actual), 1), 1e-6, None)
+    actual_pct = actual_pct / actual_pct.sum()
+    return float(np.sum((actual_pct - expected_pct) * np.log(actual_pct / expected_pct)))
+
+
+def detect_feature_drift(df: pd.DataFrame, features: list[str], threshold: float = 0.2) -> list[str]:
+    if not FEATURE_STATS_PATH.exists():
+        logger.info("No feature baseline — skipping drift check")
+        return []
+    with open(FEATURE_STATS_PATH) as f:
+        baseline = json.load(f)
+    drifted = []
+    for feat in features:
+        if feat not in baseline or feat not in df.columns:
+            continue
+        col = df[feat].dropna().values.astype(float)
+        psi = _compute_psi(baseline[feat]["breakpoints"], col)
+        if psi > threshold:
+            logger.warning(f"Feature drift: {feat}  PSI={psi:.3f} > {threshold}")
+            drifted.append(feat)
+    return drifted
 
 
 def load_data(path: Path) -> pd.DataFrame:
@@ -145,7 +174,7 @@ def split_data(
 
 
 def save_model(model: RegressorMixin, path: Path) -> None:
-    path.parent.mkdir(exist_ok=True)
+    ensure_parent(path)
     if path.exists():
         path.replace(path.with_suffix(".prev.joblib"))
     joblib.dump(model, path)
@@ -162,29 +191,38 @@ def rollback_model(path: Path) -> bool:
     return False
 
 
+def ensure_parent(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+
 def log_to_mlflow(
     model_name: str,
-    mae: float,
+    mae: float | None,
     features: list[str],
     params: dict,
     mape: float | None = None,
     tags: dict | None = None,
     shap_importances: dict[str, float] | None = None,
+    metrics: dict[str, float] | None = None,
     experiment: str = "default",
 ) -> None:
     mlflow.set_experiment(experiment)
     with mlflow.start_run(run_name=model_name):
         mlflow.set_tag("mlflow.user", os.getenv("MLFLOW_USER", ""))
-        mlflow.log_metric("mae", mae)
+        if mae is not None:
+            mlflow.log_metric("mae", mae)
         if mape is not None:
             mlflow.log_metric("mape", mape)
         if params:
             mlflow.log_params(params)
-        mlflow.log_param("features", ", ".join(features))
+        if features:
+            mlflow.log_param("features", ", ".join(features))
         if tags:
             mlflow.set_tags(tags)
         if shap_importances:
             mlflow.log_metrics({f"shap_{k}": v for k, v in shap_importances.items()})
+        if metrics:
+            mlflow.log_metrics(metrics)
 
 
 def save_to_database(

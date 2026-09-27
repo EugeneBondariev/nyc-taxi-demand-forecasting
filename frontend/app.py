@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 
 import httpx
+import pandas as pd
 import streamlit as st
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
@@ -48,13 +49,55 @@ if col2.button("Explain prediction"):
         features = [k for k, _ in sorted_items]
         values = [v for _, v in sorted_items]
         colors = ["#d62728" if v > 0 else "#1f77b4" for v in values]
-        chart_data = {
-            "Feature": features,
-            "SHAP value": values,
-        }
-        import pandas as pd
-        df_shap = pd.DataFrame(chart_data).set_index("Feature")
+        df_shap = pd.DataFrame({"SHAP value": values}, index=features)
         st.bar_chart(df_shap, color=colors)
         st.caption("Red = increases predicted demand · Blue = decreases it")
     else:
         st.error(f"Error {r.status_code}: {r.text}")
+
+st.divider()
+st.subheader("System Status")
+tab_models, tab_drift, tab_ab = st.tabs(["Model Versions", "Feature Drift", "A/B Results"])
+
+with tab_models:
+    if st.button("Load models"):
+        r = httpx.get(f"{API_URL}/v1/models")
+        if r.is_success:
+            rows = r.json()
+            if rows:
+                st.dataframe(pd.DataFrame(rows), use_container_width=True)
+            else:
+                st.info("No model versions in database yet.")
+        else:
+            st.error(f"Error {r.status_code}: {r.text}")
+
+with tab_drift:
+    if st.button("Check drift"):
+        r = httpx.get(f"{API_URL}/v1/drift")
+        if r.is_success:
+            data = r.json()
+            if not data["baseline_exists"]:
+                st.warning("No feature baseline found — run training first.")
+            elif data["rows_analyzed"] == 0:
+                st.warning("No demand history rows to analyse.")
+            else:
+                st.metric("Rows analysed", data["rows_analyzed"])
+                st.metric("Features checked", len(data["features_checked"]))
+                if data["drifted_features"]:
+                    st.error(f"Drifted features: {', '.join(data['drifted_features'])}")
+                else:
+                    st.success("No drift detected.")
+        else:
+            st.error(f"Error {r.status_code}: {r.text}")
+
+with tab_ab:
+    if st.button("Load A/B results"):
+        r = httpx.get(f"{API_URL}/v1/ab-results")
+        if r.is_success:
+            rows = r.json()
+            if rows:
+                st.dataframe(pd.DataFrame(rows), use_container_width=True)
+            else:
+                st.info("No model versions in database yet.")
+        else:
+            st.error(f"Error {r.status_code}: {r.text}")

@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -25,6 +25,7 @@ from .config import (
     CONFORMAL_MARGIN_PATH,
     DB_URL,
     DEMAND_FEATURES_V2,
+    FEATURE_STATS_PATH,
     MODEL_PATH_A,
     MODEL_PATH_LSTM,
     ModelName,
@@ -34,6 +35,7 @@ from .database import DemandHistory, ModelVersion, Prediction, init_db
 from .events import build_event_lookup
 from .logger import setup_logging
 from .train_lstm import LSTMModel
+from .utils import detect_feature_drift
 
 logger = logging.getLogger(__name__)
 model_a = None
@@ -166,6 +168,32 @@ class ExplainResponse(BaseModel):
     feature_contributions: dict[str, float] = Field(
         description="SHAP contribution of each feature to the prediction"
     )
+
+
+class ModelVersionResponse(BaseModel):
+    id: int
+    name: str
+    trained_at: datetime | None
+    mae: float | None
+    mape: float | None
+    n_estimators: int | None
+    learning_rate: float | None
+
+
+class ABResultEntry(BaseModel):
+    id: int
+    name: str
+    trained_at: datetime | None
+    mae: float | None
+    mape: float | None
+    prediction_count: int
+
+
+class DriftResponse(BaseModel):
+    baseline_exists: bool
+    features_checked: list[str]
+    drifted_features: list[str]
+    rows_analyzed: int
 
 
 def _build_xgb_features(
@@ -332,6 +360,67 @@ def explain_v1(request: Request, body: ExplainRequest) -> ExplainResponse:
         for i, col in enumerate(X.columns)
     }
     return ExplainResponse(zone_id=body.zone_id, feature_contributions=contributions)
+
+
+@v1.get("/models", summary="List trained model versions")
+def models_v1() -> list[ModelVersionResponse]:
+    with Session(engine) as session:
+        rows = session.execute(
+            select(ModelVersion).order_by(ModelVersion.trained_at.desc()).limit(20)
+        ).scalars().all()
+    return [
+        ModelVersionResponse(
+            id=r.id, name=r.name, trained_at=r.trained_at,
+            mae=r.mae, mape=r.mape,
+            n_estimators=r.n_estimators, learning_rate=r.learning_rate,
+        )
+        for r in rows
+    ]
+
+
+@v1.get("/drift", summary="Check input feature drift against training baseline")
+def drift_v1() -> DriftResponse:
+    with Session(engine) as session:
+        rows = session.execute(
+            select(DemandHistory).order_by(DemandHistory.pickup_hour_ts.desc()).limit(2000)
+        ).scalars().all()
+    baseline_exists = FEATURE_STATS_PATH.exists()
+    if not rows:
+        return DriftResponse(baseline_exists=baseline_exists, features_checked=[], drifted_features=[], rows_analyzed=0)
+    df = pd.DataFrame([{
+        "PULocationID": r.zone_id,
+        "pickup_hour": r.pickup_hour,
+        "pickup_dow": r.pickup_dow,
+        "is_holiday": r.is_holiday or 0,
+        "snowfall": r.snowfall or 0.0,
+        "is_airport": int(r.zone_id in AIRPORT_ZONES),
+    } for r in rows])
+    checkable = [f for f in DEMAND_FEATURES_V2 if f in df.columns]
+    drifted = detect_feature_drift(df, checkable)
+    return DriftResponse(
+        baseline_exists=baseline_exists,
+        features_checked=checkable,
+        drifted_features=drifted,
+        rows_analyzed=len(df),
+    )
+
+
+@v1.get("/ab-results", summary="Prediction counts and metrics per model version")
+def ab_results_v1() -> list[ABResultEntry]:
+    with Session(engine) as session:
+        versions = session.execute(
+            select(ModelVersion).order_by(ModelVersion.trained_at.desc()).limit(10)
+        ).scalars().all()
+        results = []
+        for v in versions:
+            count = session.execute(
+                select(func.count(Prediction.id)).where(Prediction.model_version_id == v.id)
+            ).scalar_one()
+            results.append(ABResultEntry(
+                id=v.id, name=v.name, trained_at=v.trained_at,
+                mae=v.mae, mape=v.mape, prediction_count=count,
+            ))
+    return results
 
 
 # Legacy route — kept for backwards compatibility
