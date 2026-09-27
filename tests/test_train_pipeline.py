@@ -43,6 +43,7 @@ def test_process_ab_test_version_saves_model(tmp_path):
         patch("src.train.log_to_mlflow"),
         patch("src.train.save_to_database"),
         patch("src.train.log_shap_plot"),
+        patch("src.train.save_feature_baseline"),
     ):
         process_ab_test_version(
             _make_demand(), DEMAND_FEATURES_A, DEMAND_TARGET,
@@ -62,6 +63,7 @@ def test_process_ab_test_version_mae_is_positive(tmp_path):
         patch("src.train.log_to_mlflow", side_effect=fake_log),
         patch("src.train.save_to_database"),
         patch("src.train.log_shap_plot"),
+        patch("src.train.save_feature_baseline"),
     ):
         process_ab_test_version(
             _make_demand(), DEMAND_FEATURES_A, DEMAND_TARGET,

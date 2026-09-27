@@ -24,9 +24,11 @@ from .features import add_lag_features
 from .logger import setup_logging
 from .train_lstm import run_training_pipeline as run_lstm_pipeline
 from .utils import (
+    compute_sample_weights,
     load_data,
     log_to_mlflow,
     predict_and_evaluate,
+    save_feature_baseline,
     save_model,
     save_to_database,
     split_data,
@@ -77,7 +79,9 @@ def process_ab_test_version(
     X_train, X_test, y_train, y_test = split_data(
         demand, demand_features, demand_target, "pickup_hour_ts"
     )
-    model, parameters = train_xgboost(X_train, y_train)
+    sample_weight = compute_sample_weights(X_train, y_train)
+    model, parameters = train_xgboost(X_train, y_train, sample_weight=sample_weight)
+    save_feature_baseline(X_train, demand_features)
     mae, mape = predict_and_evaluate(model, X_test, y_test)
     shap_importances, shap_sample, shap_values = compute_shap_importances(model, X_train)
     log_to_mlflow(

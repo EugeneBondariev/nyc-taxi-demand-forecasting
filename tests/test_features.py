@@ -27,7 +27,7 @@ def make_df(trip_distance, fare_amount, pickups=SAMPLE_TIMESTAMPS, dropoffs=SAMP
 
 
 def test_clean_filters_negative_fares():
-    df = clean_taxi_data(make_df([1, 2, 3], [-7, 2, 15]), 2024, 1)
+    df = clean_taxi_data(make_df([1, 2, 3], [-7, 4, 15]), 2024, 1)
     assert len(df) == 2
     assert -7 not in df["fare_amount"].values
 

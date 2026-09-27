@@ -16,6 +16,7 @@ MODEL_FOLDER_A = str(ROOT / "models" / "xgb_demand_a.joblib")
 MODEL_PATH_A = Path(os.getenv("MODEL_PATH_A", MODEL_FOLDER_A))
 MODEL_PATH_LSTM = Path(os.getenv("MODEL_PATH_LSTM", str(ROOT / "models" / "lstm_demand.pt")))
 CONFORMAL_MARGIN_PATH = ROOT / "models" / "conformal_margin.npy"
+FEATURE_STATS_PATH = ROOT / "models" / "feature_stats.json"
 MODEL_PATH_FARE_A = ROOT / "models" / "fare_linear.joblib"
 MODEL_PATH_FARE_B = ROOT / "models" / "fare_xgb.joblib"
 

@@ -66,30 +66,61 @@ class LSTMModel(nn.Module):
 def train_model(
     X_train: np.ndarray,
     y_train: np.ndarray,
-    epochs: int = 3,
+    epochs: int = 20,
     batch_size: int = 512,
     lr: float = 0.001,
+    patience: int = 3,
 ) -> LSTMModel:
-    dataset = TensorDataset(torch.tensor(X_train), torch.tensor(y_train))
+    val_size = max(1, int(len(X_train) * 0.1))
+    X_tr, X_val = X_train[:-val_size], X_train[-val_size:]
+    y_tr, y_val = y_train[:-val_size], y_train[-val_size:]
+
+    dataset = TensorDataset(torch.tensor(X_tr), torch.tensor(y_tr))
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    val_X_t = torch.tensor(X_val)
+    val_y_t = torch.tensor(y_val)
 
     model = LSTMModel()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", patience=2, factor=0.5, min_lr=1e-5
+    )
     loss_fn = nn.MSELoss()
+
+    best_val_loss = float("inf")
+    best_state: dict = {}
+    no_improve = 0
 
     for epoch in range(epochs):
         model.train()
-        total_loss = 0
-        for batch_idx, (X_batch, y_batch) in enumerate(loader):
+        train_loss = 0.0
+        for X_batch, y_batch in loader:
             optimizer.zero_grad()
-            pred = model(X_batch)
-            loss = loss_fn(pred, y_batch)
+            loss = loss_fn(model(X_batch), y_batch)
             loss.backward()
             optimizer.step()
-            total_loss += loss.item()
-            if (batch_idx + 1) % 100 == 0:
-                logger.info(f"Epoch {epoch + 1}/{epochs} batch {batch_idx + 1}/{len(loader)} loss: {loss.item():.4f}")
-        logger.info(f"Epoch {epoch + 1}/{epochs} loss: {total_loss / len(loader):.4f}")
+            train_loss += loss.item()
+
+        model.eval()
+        with torch.no_grad():
+            val_loss = loss_fn(model(val_X_t), val_y_t).item()
+
+        scheduler.step(val_loss)
+        logger.info(
+            f"Epoch {epoch + 1}/{epochs}  train={train_loss / len(loader):.4f}"
+            f"  val={val_loss:.4f}  lr={optimizer.param_groups[0]['lr']:.2e}"
+        )
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_state = {k: v.clone() for k, v in model.state_dict().items()}
+            no_improve = 0
+        else:
+            no_improve += 1
+            if no_improve >= patience:
+                logger.info(f"Early stopping at epoch {epoch + 1} (patience={patience})")
+                model.load_state_dict(best_state)
+                break
 
     return model
 
@@ -128,7 +159,11 @@ def run_training_pipeline() -> None:
         ModelName.DEMAND_LSTM.value,
         mae,
         LSTM_FEATURES,
-        {"epochs": 3, "batch_size": 512, "lr": 0.001, "window_size": WINDOW_SIZE, "hidden_size": 64, "num_layers": 2},
+        {
+            "max_epochs": 20, "batch_size": 512, "lr": 0.001,
+            "patience": 3, "window_size": WINDOW_SIZE,
+            "hidden_size": 64, "num_layers": 2, "early_stopping": True,
+        },
         mape=mape,
         experiment="demand",
     )

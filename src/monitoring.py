@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from pathlib import Path
@@ -11,8 +12,9 @@ from sqlalchemy.orm import Session
 
 from .config import (
     DB_URL,
-    DEMAND_FEATURES_A,
+    DEMAND_FEATURES_V2,
     DEMAND_TARGET,
+    FEATURE_STATS_PATH,
     MAE_THRESHOLD,
     MAPE_THRESHOLD,
     MODEL_PATH_A,
@@ -36,6 +38,35 @@ from .utils import get_features_and_target, predict_and_evaluate
 
 logger = logging.getLogger(__name__)
 engine = init_db(DB_URL)
+
+
+def _compute_psi(breakpoints: list[float], actual: np.ndarray) -> float:
+    bins = np.array(breakpoints, dtype=float)
+    bins[0], bins[-1] = -np.inf, np.inf
+    n_bins = len(bins) - 1
+    expected_pct = np.full(n_bins, 1.0 / n_bins)
+    actual_counts = np.histogram(actual, bins=bins)[0]
+    actual_pct = np.clip(actual_counts / max(len(actual), 1), 1e-6, None)
+    actual_pct = actual_pct / actual_pct.sum()
+    return float(np.sum((actual_pct - expected_pct) * np.log(actual_pct / expected_pct)))
+
+
+def detect_feature_drift(df: pd.DataFrame, features: list[str], threshold: float = 0.2) -> list[str]:
+    if not FEATURE_STATS_PATH.exists():
+        logger.info("No feature baseline — skipping drift check")
+        return []
+    with open(FEATURE_STATS_PATH) as f:
+        baseline = json.load(f)
+    drifted = []
+    for feat in features:
+        if feat not in baseline:
+            continue
+        col = df[feat].dropna().values.astype(float)
+        psi = _compute_psi(baseline[feat]["breakpoints"], col)
+        if psi > threshold:
+            logger.warning(f"Feature drift: {feat}  PSI={psi:.3f} > {threshold}")
+            drifted.append(feat)
+    return drifted
 
 
 def send_alert(message: str) -> None:
@@ -72,16 +103,21 @@ def detect_drift(current_mae: float, model_name: str, lookback: int = 5) -> bool
     return False
 
 
-def compare_predictions(mae: float, mape: float) -> None:
-    drifted = detect_drift(mae, ModelName.DEMAND_XGB.value)
-    if mae > MAE_THRESHOLD or mape > MAPE_THRESHOLD or drifted:
+def compare_predictions(
+    mae: float, mape: float, feature_drift: list[str] | None = None
+) -> None:
+    output_drifted = detect_drift(mae, ModelName.DEMAND_XGB.value)
+    input_drifted = bool(feature_drift)
+    if mae > MAE_THRESHOLD or mape > MAPE_THRESHOLD or output_drifted or input_drifted:
         reason = []
         if mae > MAE_THRESHOLD:
             reason.append(f"MAE {mae:.2f} > threshold {MAE_THRESHOLD}")
         if mape > MAPE_THRESHOLD:
             reason.append(f"MAPE {mape:.2%} > threshold {MAPE_THRESHOLD:.2%}")
-        if drifted:
-            reason.append("drift detected (>10% above rolling baseline)")
+        if output_drifted:
+            reason.append("output drift (>10% above rolling baseline)")
+        if input_drifted:
+            reason.append(f"input feature drift: {', '.join(feature_drift)}")  # type: ignore[arg-type]
         msg = "Retraining triggered: " + "; ".join(reason)
         logger.warning(msg)
         send_alert(f":warning: *uber-api* — {msg}")
@@ -97,7 +133,8 @@ def monitor_ab_test_version(
     X, y = get_features_and_target(demand, demand_features, demand_target)
     model = joblib.load(model_path)
     mae, mape = predict_and_evaluate(model, X, y)
-    compare_predictions(mae, mape)
+    drifted_features = detect_feature_drift(demand, demand_features)
+    compare_predictions(mae, mape, feature_drift=drifted_features)
 
 
 if __name__ == "__main__":
@@ -117,4 +154,4 @@ if __name__ == "__main__":
     holiday_dates = load_events_data()
 
     demand = build_demand_table(taxi_df, weather_df, holiday_dates)
-    monitor_ab_test_version(demand, DEMAND_FEATURES_A, DEMAND_TARGET, MODEL_PATH_A)
+    monitor_ab_test_version(demand, DEMAND_FEATURES_V2, DEMAND_TARGET, MODEL_PATH_A)

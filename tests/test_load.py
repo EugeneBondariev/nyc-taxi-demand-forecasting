@@ -21,10 +21,9 @@ def test_predict_latency_under_500ms():
 def test_predict_concurrent_no_errors():
     n_requests = 20
 
-    with TestClient(app) as client:
+    with TestClient(app) as client, patch("src.api.random.random", return_value=0.9):
         def _call(_):
-            with patch("src.api.random.random", return_value=0.9):
-                return client.post("/v1/predict", json=_V1_PAYLOAD).status_code
+            return client.post("/v1/predict", json=_V1_PAYLOAD).status_code
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             statuses = list(executor.map(_call, range(n_requests)))

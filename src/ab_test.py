@@ -10,11 +10,12 @@ from scipy import stats
 
 from .config import (
     DEMAND_DATA,
-    DEMAND_FEATURES_A,
+    DEMAND_FEATURES_V2,
     MLFLOW_TRACKING_URI,
     MODEL_PATH_A,
     MODEL_PATH_LSTM,
 )
+from .features import add_lag_features
 from .logger import setup_logging
 from .train_lstm import LSTM_FEATURES, WINDOW_SIZE, LSTMModel
 from .utils import load_data
@@ -41,7 +42,7 @@ def get_test_samples(
         for i in range(cutoff, len(group) - WINDOW_SIZE):
             target = group.iloc[i + WINDOW_SIZE]
             lstm_seqs.append(features[i : i + WINDOW_SIZE])
-            xgb_rows.append({col: target[col] for col in DEMAND_FEATURES_A})
+            xgb_rows.append({col: target[col] for col in DEMAND_FEATURES_V2})
             y_vals.append(target["trip_count"])
 
     return (
@@ -53,7 +54,7 @@ def get_test_samples(
 
 def run_ab_test() -> None:
     logger.info("Loading demand data...")
-    demand = load_data(DEMAND_DATA)
+    demand = add_lag_features(load_data(DEMAND_DATA))
 
     logger.info("Building test samples (same split as training)...")
     X_xgb, X_lstm, y_true = get_test_samples(demand)

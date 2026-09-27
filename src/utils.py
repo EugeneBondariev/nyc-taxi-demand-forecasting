@@ -1,10 +1,12 @@
 import calendar
+import json
 import logging
 import os
 from pathlib import Path
 
 import joblib
 import mlflow
+import numpy as np
 import pandas as pd
 from sklearn.base import RegressorMixin
 from sklearn.linear_model import LinearRegression
@@ -13,12 +15,49 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from xgboost import XGBRegressor
 
-from .config import MLFLOW_TRACKING_URI
+from .config import FEATURE_STATS_PATH, MLFLOW_TRACKING_URI
 from .database import ModelVersion
 
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 logger = logging.getLogger(__name__)
+
+
+def compute_sample_weights(X_train: pd.DataFrame, y_train: pd.Series) -> np.ndarray:
+    """Combine two weights into one sample_weight array for XGBoost.
+
+    Peak weight: Q80+ rows get 2× — reduces Q5 under-prediction.
+    Zone weight: inverse of zone mean demand — balances low-demand zone MAPE.
+    """
+    q80 = float(y_train.quantile(0.80))
+    peak_weight = np.where(y_train.values >= q80, 2.0, 1.0)
+
+    zone_mean = (
+        pd.DataFrame({"zone": X_train["PULocationID"].values, "y": y_train.values})
+        .groupby("zone")["y"]
+        .mean()
+    )
+    zone_demand = X_train["PULocationID"].map(zone_mean).fillna(zone_mean.mean())
+    inv_weight = 1.0 / (zone_demand / zone_demand.mean() + 0.1)
+    inv_weight = (inv_weight / inv_weight.mean()).values
+
+    combined = peak_weight * inv_weight
+    return (combined / combined.mean()).astype(np.float32)
+
+
+def save_feature_baseline(df: pd.DataFrame, features: list[str]) -> None:
+    """Persist per-feature decile breakpoints for PSI drift detection."""
+    baseline: dict = {}
+    for feat in features:
+        col = df[feat].dropna().values.astype(float)
+        baseline[feat] = {
+            "breakpoints": np.percentile(col, np.linspace(0, 100, 11)).tolist(),
+            "n": int(len(col)),
+        }
+    FEATURE_STATS_PATH.parent.mkdir(exist_ok=True)
+    with open(FEATURE_STATS_PATH, "w") as f:
+        json.dump(baseline, f)
+    logger.info(f"Feature baseline saved → {FEATURE_STATS_PATH}")
 
 
 def load_data(path: Path) -> pd.DataFrame:
@@ -73,7 +112,12 @@ def train_linear(X_train: pd.DataFrame, y_train: pd.Series) -> tuple[LinearRegre
     return model, {}
 
 
-def train_xgboost(X_train: pd.DataFrame, y_train: pd.Series, max_depth: int = 9) -> tuple[XGBRegressor, dict]:
+def train_xgboost(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    max_depth: int = 9,
+    sample_weight: np.ndarray | None = None,
+) -> tuple[XGBRegressor, dict]:
     parameters = {"n_estimators": 300, "learning_rate": 0.05}
     model = XGBRegressor(
         n_estimators=parameters["n_estimators"],
@@ -81,7 +125,7 @@ def train_xgboost(X_train: pd.DataFrame, y_train: pd.Series, max_depth: int = 9)
         max_depth=max_depth,
         learning_rate=parameters["learning_rate"],
     )
-    model.fit(X_train, y_train)
+    model.fit(X_train, y_train, sample_weight=sample_weight)
     logger.info("XGBoost training complete")
     return model, parameters
 
