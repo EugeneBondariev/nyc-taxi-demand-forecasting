@@ -19,16 +19,16 @@ from .config import (
     TAXI_DATA_FOLDER,
     WEATHER_DATA_FOLDER,
 )
-from .events import add_nyc_event_feature, build_event_lookup
 from .database import DemandHistory, init_db
+from .events import add_nyc_event_feature, build_event_lookup
 from .logger import setup_logging
-from .utils import is_valid_file
+from .utils import ensure_parent, is_valid_file
 from .validation import validate_demand, validate_taxi
 
 FIRST_YEAR_AVAILABLE = 2009
 NEXT_YEAR = (
     datetime.now(tz=None).year + 1
-)  # noqa: DTZ005 — local time intentional for year boundary
+)
 TESTED_YEAR = 2024
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ def download_taxi_data(year: int) -> None:
 
     for i in range(1, 13):
         file = TAXI_DATA_FOLDER / str(year) / f"yellow_tripdata_{year}-{i:02d}.parquet"
-        file.parent.mkdir(parents=True, exist_ok=True)
+        ensure_parent(file)
 
         if not file.exists() or not is_valid_file(file, year, i):
             logger.info(f"Downloading the file for {year}-{i:02d}")
@@ -62,7 +62,7 @@ def download_taxi_data(year: int) -> None:
 
 def download_events_data(year: int) -> None:
     file = EVENTS_DATA_FOLDER / str(year) / f"holidays-{year}.parquet"
-    file.parent.mkdir(parents=True, exist_ok=True)
+    ensure_parent(file)
     if not file.exists():
         logger.info(f"Downloading {year} US public holidays")
         r = httpx.get(f"https://date.nager.at/api/v3/PublicHolidays/{year}/US")
@@ -83,7 +83,7 @@ def load_events_data() -> set:
 
 def download_weather_data(year: int):
     file = WEATHER_DATA_FOLDER / str(year) / f"open-meteo-{year}.parquet"
-    file.parent.mkdir(parents=True, exist_ok=True)
+    ensure_parent(file)
 
     if not file.exists():
         logger.info(f"Downloading the {year} year file")

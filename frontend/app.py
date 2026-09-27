@@ -16,15 +16,17 @@ prediction_time = st.datetime_input(
 is_holiday = st.checkbox("Public holiday")
 snowfall = st.slider("Snowfall (cm)", min_value=0.0, max_value=20.0, value=0.0, step=0.5)
 
-if st.button("Get prediction"):
-    payload = {
-        "zone_id": zone_id,
-        "prediction_time": prediction_time.isoformat(),
-        "is_holiday": int(is_holiday),
-        "snowfall": snowfall,
-    }
-    r = httpx.post(f"{API_URL}/v1/predict", json=payload)
+payload = {
+    "zone_id": zone_id,
+    "prediction_time": prediction_time.isoformat(),
+    "is_holiday": int(is_holiday),
+    "snowfall": snowfall,
+}
 
+col1, col2 = st.columns(2)
+
+if col1.button("Get prediction"):
+    r = httpx.post(f"{API_URL}/v1/predict", json=payload)
     if r.is_success:
         data = r.json()
         st.metric("Predicted trips", data["predicted_trips"])
@@ -36,3 +38,23 @@ if st.button("Get prediction"):
     else:
         st.error(f"Error {r.status_code}: {r.text}")
         st.badge("Failure", color="red")
+
+if col2.button("Explain prediction"):
+    r = httpx.post(f"{API_URL}/v1/explain", json=payload)
+    if r.is_success:
+        contributions = r.json()["feature_contributions"]
+        st.subheader("SHAP feature contributions (XGBoost)")
+        sorted_items = sorted(contributions.items(), key=lambda x: abs(x[1]), reverse=True)
+        features = [k for k, _ in sorted_items]
+        values = [v for _, v in sorted_items]
+        colors = ["#d62728" if v > 0 else "#1f77b4" for v in values]
+        chart_data = {
+            "Feature": features,
+            "SHAP value": values,
+        }
+        import pandas as pd
+        df_shap = pd.DataFrame(chart_data).set_index("Feature")
+        st.bar_chart(df_shap, color=colors)
+        st.caption("Red = increases predicted demand · Blue = decreases it")
+    else:
+        st.error(f"Error {r.status_code}: {r.text}")

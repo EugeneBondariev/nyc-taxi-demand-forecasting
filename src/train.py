@@ -25,6 +25,7 @@ from .logger import setup_logging
 from .train_lstm import run_training_pipeline as run_lstm_pipeline
 from .utils import (
     compute_sample_weights,
+    ensure_parent,
     load_data,
     log_to_mlflow,
     predict_and_evaluate,
@@ -95,7 +96,7 @@ def process_ab_test_version(
     if conformal_margin_path is not None:
         residuals = np.abs(y_test.values - model.predict(X_test))
         margin = float(np.quantile(residuals, 0.80))
-        conformal_margin_path.parent.mkdir(exist_ok=True)
+        ensure_parent(conformal_margin_path)
         np.save(conformal_margin_path, np.array([margin]))
         logger.info(f"Conformal margin (80%): {margin:.2f} — saved to {conformal_margin_path}")
 

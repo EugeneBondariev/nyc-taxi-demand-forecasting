@@ -168,6 +168,25 @@ class ExplainResponse(BaseModel):
     )
 
 
+def _build_xgb_features(
+    zone_id: int, hour: int, day_of_week: int, week: int,
+    is_holiday: int, snowfall: float, lag_24h: float, lag_168h: float,
+    is_nyc_event: int,
+) -> pd.DataFrame:
+    return pd.DataFrame([{
+        "PULocationID": zone_id,
+        "pickup_hour": hour,
+        "pickup_dow": day_of_week,
+        "pickup_week": week,
+        "is_holiday": is_holiday,
+        "snowfall": snowfall,
+        "lag_24h": lag_24h,
+        "lag_168h": lag_168h,
+        "is_airport": int(zone_id in AIRPORT_ZONES),
+        "is_nyc_event": is_nyc_event,
+    }])[DEMAND_FEATURES_V2]
+
+
 def _fetch_lag_features(
     zone_id: int, prediction_time: datetime, session: Session
 ) -> tuple[float, float]:
@@ -223,18 +242,11 @@ def _predict_logic(body: PredictionRequest) -> PredictionResponse:
             result = round(max(0.0, model_b(X_tensor).item()), 2)
         lo = hi = None
     else:
-        X = pd.DataFrame([{
-            "PULocationID": zone_id,
-            "pickup_hour": hour,
-            "pickup_dow": day_of_week,
-            "pickup_week": week,
-            "is_holiday": body.is_holiday,
-            "snowfall": body.snowfall,
-            "lag_24h": body.lag_24h,
-            "lag_168h": body.lag_168h,
-            "is_airport": int(zone_id in AIRPORT_ZONES),
-            "is_nyc_event": body.is_nyc_event,
-        }])[DEMAND_FEATURES_V2]
+        X = _build_xgb_features(
+            zone_id, hour, day_of_week, week,
+            body.is_holiday, body.snowfall, body.lag_24h, body.lag_168h,
+            body.is_nyc_event,
+        )
         prediction = model_a.predict(X)
         result = round(max(0.0, float(prediction[0])), 2)
         lo = hi = None
@@ -308,18 +320,11 @@ def explain_v1(request: Request, body: ExplainRequest) -> ExplainResponse:
     dt = body.prediction_time
     with Session(engine) as session:
         lag_24h, lag_168h = _fetch_lag_features(body.zone_id, dt, session)
-    X = pd.DataFrame([{
-        "PULocationID": body.zone_id,
-        "pickup_hour": dt.hour,
-        "pickup_dow": dt.weekday(),
-        "pickup_week": dt.isocalendar()[1],
-        "is_holiday": body.is_holiday,
-        "snowfall": body.snowfall,
-        "lag_24h": lag_24h,
-        "lag_168h": lag_168h,
-        "is_airport": int(body.zone_id in AIRPORT_ZONES),
-        "is_nyc_event": int((dt.strftime("%Y-%m-%d"), body.zone_id) in nyc_event_lookup),
-    }])[DEMAND_FEATURES_V2]
+    X = _build_xgb_features(
+        body.zone_id, dt.hour, dt.weekday(), dt.isocalendar()[1],
+        body.is_holiday, body.snowfall, lag_24h, lag_168h,
+        int((dt.strftime("%Y-%m-%d"), body.zone_id) in nyc_event_lookup),
+    )
     explainer = shap.TreeExplainer(model_a)
     shap_values = explainer(X)
     contributions = {
