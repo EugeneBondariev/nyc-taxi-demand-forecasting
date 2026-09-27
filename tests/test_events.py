@@ -1,5 +1,4 @@
 import pandas as pd
-import pytest
 
 from src.events import _annual_events, add_nyc_event_feature, build_event_lookup
 

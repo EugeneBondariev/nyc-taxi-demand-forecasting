@@ -1,9 +1,8 @@
 import os
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
-
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 config = context.config
 
@@ -16,7 +15,7 @@ if db_url:
     config.set_main_option("sqlalchemy.url", db_url)
 
 # Register all ORM models so autogenerate can diff against the live schema
-from src.database import Base  # noqa: E402
+from src.database import Base
 
 target_metadata = Base.metadata
 

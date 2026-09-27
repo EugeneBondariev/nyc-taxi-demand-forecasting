@@ -4,14 +4,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
-from sqlalchemy.orm import Session
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from .config import DB_URL, DEMAND_DATA, MODEL_PATH_LSTM, ModelName
-from .database import ModelVersion, init_db
+from .database import init_db
 from .logger import setup_logging
-from .utils import load_data, log_to_mlflow
+from .utils import ensure_parent, load_data, log_to_mlflow, save_to_database
 
 logger = logging.getLogger(__name__)
 engine = init_db(DB_URL)
@@ -142,10 +141,6 @@ def save_model(model: LSTMModel, path: Path) -> None:
     logger.info(f"Model saved to {path}")
 
 
-def save_to_database(mae: float) -> None:
-    with Session(engine) as session:
-        session.add(ModelVersion(name=ModelName.DEMAND_LSTM.value, mae=mae))
-        session.commit()
 
 
 def run_training_pipeline() -> None:
@@ -153,7 +148,7 @@ def run_training_pipeline() -> None:
     X_train, X_test, y_train, y_test = build_sequences(demand)
     model = train_model(X_train, y_train)
     mae, mape = evaluate(model, X_test, y_test)
-    MODEL_PATH_LSTM.parent.mkdir(exist_ok=True)
+    ensure_parent(MODEL_PATH_LSTM)
     save_model(model, MODEL_PATH_LSTM)
     log_to_mlflow(
         ModelName.DEMAND_LSTM.value,
@@ -167,7 +162,11 @@ def run_training_pipeline() -> None:
         mape=mape,
         experiment="demand",
     )
-    save_to_database(mae)
+    lstm_params = {
+        "max_epochs": 20, "batch_size": 512, "lr": 0.001,
+        "patience": 3, "window_size": WINDOW_SIZE, "hidden_size": 64, "num_layers": 2,
+    }
+    save_to_database(mae, mape, lstm_params, ModelName.DEMAND_LSTM.value, engine)
 
 
 if __name__ == "__main__":

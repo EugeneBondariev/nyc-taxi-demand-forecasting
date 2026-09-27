@@ -1,5 +1,4 @@
 import logging
-import os
 
 import mlflow
 import pandas as pd
@@ -9,7 +8,7 @@ from sklearn.preprocessing import StandardScaler
 
 from .config import DEMAND_DATA, MLFLOW_TRACKING_URI, ROOT
 from .logger import setup_logging
-from .utils import load_data
+from .utils import ensure_parent, load_data, log_to_mlflow
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +44,7 @@ def run_clustering(n_clusters: int = N_CLUSTERS) -> None:
     logger.info(f"Silhouette score: {sil:.4f}  (closer to 1 = better separation)")
 
     result = pd.DataFrame({"zone_id": profile.index, "cluster": labels})
-    CLUSTER_PATH.parent.mkdir(parents=True, exist_ok=True)
+    ensure_parent(CLUSTER_PATH)
     result.to_parquet(CLUSTER_PATH, index=False)
     logger.info(f"Saved → {CLUSTER_PATH}")
 
@@ -53,13 +52,14 @@ def run_clustering(n_clusters: int = N_CLUSTERS) -> None:
         zones = result[result["cluster"] == c]["zone_id"].tolist()
         logger.info(f"  Cluster {c}: {len(zones)} zones")
 
-    mlflow.set_experiment("clustering")
-    with mlflow.start_run(run_name="kmeans_zones"):
-        mlflow.set_tag("mlflow.user", os.getenv("MLFLOW_USER", ""))
-        mlflow.log_metric("silhouette_score", sil)
-        mlflow.log_param("n_clusters", n_clusters)
-        mlflow.log_param("n_zones", len(profile))
-        mlflow.log_param("features", "hourly_mean_trip_count_0-23")
+    log_to_mlflow(
+        "kmeans_zones",
+        mae=None,
+        features=[],
+        params={"n_clusters": n_clusters, "n_zones": len(profile), "features": "hourly_mean_trip_count_0-23"},
+        metrics={"silhouette_score": sil},
+        experiment="clustering",
+    )
 
 
 if __name__ == "__main__":

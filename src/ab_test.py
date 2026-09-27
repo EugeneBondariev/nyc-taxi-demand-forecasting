@@ -1,5 +1,4 @@
 import logging
-import os
 
 import joblib
 import mlflow
@@ -18,7 +17,7 @@ from .config import (
 from .features import add_lag_features
 from .logger import setup_logging
 from .train_lstm import LSTM_FEATURES, WINDOW_SIZE, LSTMModel
-from .utils import load_data
+from .utils import load_data, log_to_mlflow
 
 logger = logging.getLogger(__name__)
 
@@ -103,21 +102,18 @@ def run_ab_test() -> None:
         logger.info("  Result: no significant difference (p >= 0.05)")
     logger.info("=" * 52)
 
-    mlflow.set_experiment("demand")
-    with mlflow.start_run(run_name="ab_test"):
-        mlflow.set_tag("mlflow.user", os.getenv("MLFLOW_USER", ""))
-        mlflow.log_metric("mae_xgboost", mae_a)
-        mlflow.log_metric("mae_lstm", mae_b)
-        mlflow.log_metric("mae_diff", mae_a - mae_b)
-        mlflow.log_metric("t_statistic", t_stat)
-        mlflow.log_metric("p_value", p_value)
-        mlflow.log_metric("ci_low", ci_low)
-        mlflow.log_metric("ci_high", ci_high)
-        mlflow.log_param("n_samples", len(y_true))
-        mlflow.log_param("alpha", 0.05)
-        mlflow.log_param("test", "paired t-test")
-        if winner:
-            mlflow.set_tag("winner", winner)
+    log_to_mlflow(
+        "ab_test",
+        mae=None,
+        features=[],
+        params={"n_samples": len(y_true), "alpha": 0.05, "test": "paired t-test"},
+        tags={"winner": winner} if winner else None,
+        metrics={
+            "mae_xgboost": mae_a, "mae_lstm": mae_b, "mae_diff": mae_a - mae_b,
+            "t_statistic": t_stat, "p_value": p_value, "ci_low": ci_low, "ci_high": ci_high,
+        },
+        experiment="demand",
+    )
 
 
 if __name__ == "__main__":
