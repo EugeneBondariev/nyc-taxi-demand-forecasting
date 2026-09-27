@@ -7,6 +7,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    UniqueConstraint,
     create_engine,
 )
 from sqlalchemy.orm import declarative_base
@@ -43,6 +44,7 @@ class ModelVersion(Base):
 
 class DemandHistory(Base):
     __tablename__ = "demand_history"
+    __table_args__ = (UniqueConstraint("zone_id", "pickup_hour_ts"),)
 
     id = Column(Integer, primary_key=True)
     zone_id = Column(Integer, nullable=False, index=True)

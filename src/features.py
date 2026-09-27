@@ -6,7 +6,8 @@ from urllib.request import urlretrieve
 
 import httpx
 import pandas as pd
-from sqlalchemy import insert
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from .config import (
@@ -195,11 +196,7 @@ def add_weather_data(taxi_df: pd.DataFrame, weather_df: pd.DataFrame) -> pd.Data
 
 
 def populate_demand_history(demand: pd.DataFrame) -> None:
-    from .database import Base
-
     engine = init_db(DB_URL)
-    DemandHistory.__table__.drop(engine, checkfirst=True)
-    Base.metadata.create_all(engine)
     records = (
         demand[
             [
@@ -217,10 +214,11 @@ def populate_demand_history(demand: pd.DataFrame) -> None:
         .rename(columns={"PULocationID": "zone_id"})
         .to_dict("records")
     )
+    upsert = pg_insert if engine.dialect.name == "postgresql" else sqlite_insert
     with Session(engine) as session:
-        session.execute(insert(DemandHistory), records)
+        session.execute(upsert(DemandHistory).on_conflict_do_nothing(), records)
         session.commit()
-    logger.info(f"Populated demand_history with {len(records)} rows")
+    logger.info(f"Upserted demand_history with {len(records)} rows")
 
 
 if __name__ == "__main__":
