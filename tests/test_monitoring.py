@@ -17,6 +17,10 @@ from src.monitoring import compare_predictions
     ],
 )
 def test_compare_predictions(mae, mape, should_retrain, caplog):
-    with patch("src.monitoring.run_training_pipeline"), caplog.at_level(logging.WARNING):
+    with (
+        patch("src.monitoring.run_training_pipeline"),
+        patch("src.monitoring.detect_drift", return_value=False),
+        caplog.at_level(logging.WARNING),
+    ):
         compare_predictions(mae, mape)
-    assert ("Trigger retraining" in caplog.text) == should_retrain
+    assert ("Retraining triggered" in caplog.text) == should_retrain

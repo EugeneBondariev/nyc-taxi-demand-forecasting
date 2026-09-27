@@ -1,6 +1,8 @@
 import logging
+import os
 from pathlib import Path
 
+import httpx
 import joblib
 import numpy as np
 import pandas as pd
@@ -35,6 +37,17 @@ from .utils import get_features_and_target, predict_and_evaluate
 logger = logging.getLogger(__name__)
 
 
+def send_alert(message: str) -> None:
+    webhook_url = os.getenv("SLACK_WEBHOOK_URL")
+    if not webhook_url:
+        return
+    try:
+        httpx.post(webhook_url, json={"text": message}, timeout=5)
+        logger.info("Slack alert sent")
+    except Exception:  # noqa: BLE001
+        logger.warning("Failed to send Slack alert — check SLACK_WEBHOOK_URL")
+
+
 def detect_drift(current_mae: float, model_name: str, lookback: int = 5) -> bool:
     engine = init_db(DB_URL)
     with Session(engine) as session:
@@ -62,7 +75,16 @@ def detect_drift(current_mae: float, model_name: str, lookback: int = 5) -> bool
 def compare_predictions(mae: float, mape: float) -> None:
     drifted = detect_drift(mae, ModelName.DEMAND_XGB.value)
     if mae > MAE_THRESHOLD or mape > MAPE_THRESHOLD or drifted:
-        logger.warning("Trigger retraining")
+        reason = []
+        if mae > MAE_THRESHOLD:
+            reason.append(f"MAE {mae:.2f} > threshold {MAE_THRESHOLD}")
+        if mape > MAPE_THRESHOLD:
+            reason.append(f"MAPE {mape:.2%} > threshold {MAPE_THRESHOLD:.2%}")
+        if drifted:
+            reason.append("drift detected (>10% above rolling baseline)")
+        msg = "Retraining triggered: " + "; ".join(reason)
+        logger.warning(msg)
+        send_alert(f":warning: *uber-api* — {msg}")
         run_training_pipeline()
 
 
