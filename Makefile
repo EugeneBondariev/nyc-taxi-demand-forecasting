@@ -1,4 +1,4 @@
-.PHONY: features features-spark train train-lstm train-fare train-classification monitoring ab-test cluster anomaly api frontend test mlflow airflow dvc-push dvc-pull
+.PHONY: features features-spark train train-lstm train-fare train-classification monitoring ab-test cluster anomaly api frontend test mlflow airflow dvc-push dvc-pull migrate migrate-new rollback
 
 include .env
 export
@@ -57,6 +57,15 @@ dvc-push:
 
 dvc-pull:
 	$(PYTHON) -m dvc pull
+
+migrate:
+	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m alembic upgrade head
+
+migrate-new:
+	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m alembic revision --autogenerate -m "$(msg)"
+
+rollback:
+	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -c "from src.utils import rollback_model; from src.config import MODEL_PATH_A; rollback_model(MODEL_PATH_A)"
 
 k8s-deploy:
 	kubectl create secret generic uber-secrets \
