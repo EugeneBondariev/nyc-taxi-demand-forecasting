@@ -1,4 +1,4 @@
-.PHONY: features features-spark train train-lstm train-fare train-classification monitoring ab-test cluster anomaly api frontend test mlflow airflow dvc-push dvc-pull migrate migrate-new rollback
+.PHONY: features features-spark train train-lstm train-fare train-classification monitoring ab-test cluster anomaly api frontend test mlflow airflow dvc-push dvc-pull migrate migrate-new rollback baseline
 
 include .env
 export
@@ -57,6 +57,9 @@ dvc-push:
 
 dvc-pull:
 	$(PYTHON) -m dvc pull
+
+baseline:
+	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.baseline
 
 migrate:
 	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m alembic upgrade head

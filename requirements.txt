@@ -26,3 +26,5 @@ ruff
 mypy
 pre-commit
 alembic
+seaborn
+jupyter
