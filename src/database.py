@@ -52,6 +52,7 @@ class DemandHistory(Base):
     temperature_2m = Column(Float)
     precipitation = Column(Float)
     snowfall = Column(Float)
+    is_holiday = Column(Integer, default=0)
 
 
 def get_engine(db_url: str):

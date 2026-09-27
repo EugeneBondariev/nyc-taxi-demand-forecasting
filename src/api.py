@@ -58,6 +58,7 @@ class PredictionRequest(BaseModel):
     hour: int = Field(ge=0, le=23)
     day_of_week: int = Field(ge=0, le=6)
     week: int = Field(ge=1, le=53)
+    is_holiday: int = Field(default=0, ge=0, le=1)
 
 
 class PredictionResponse(BaseModel):
@@ -79,6 +80,7 @@ def predict(request: PredictionRequest) -> PredictionResponse:
     hour = request.hour
     day_of_week = request.day_of_week
     week = request.week
+    is_holiday = request.is_holiday
 
     use_model_b = random.random() < 0.5
     version_id = model_b_version_id if use_model_b else model_a_version_id
@@ -94,7 +96,7 @@ def predict(request: PredictionRequest) -> PredictionResponse:
         if len(rows) < 24:
             raise HTTPException(status_code=422, detail=f"Not enough history for zone {zone_id}")
         rows = sorted(rows, key=lambda r: r.pickup_hour_ts)
-        X_lstm = np.array([[r.trip_count, r.pickup_hour, r.pickup_dow, r.temperature_2m or 0.0, r.precipitation or 0.0, r.snowfall or 0.0] for r in rows], dtype=np.float32)
+        X_lstm = np.array([[r.trip_count, r.pickup_hour, r.pickup_dow, r.temperature_2m or 0.0, r.precipitation or 0.0, r.snowfall or 0.0, r.is_holiday or 0] for r in rows], dtype=np.float32)
         X_tensor = torch.tensor(X_lstm).unsqueeze(0)
         with torch.no_grad():
             result = round(max(0.0, model_b(X_tensor).item()), 2)
@@ -105,6 +107,7 @@ def predict(request: PredictionRequest) -> PredictionResponse:
                 "pickup_hour": [hour],
                 "pickup_dow": [day_of_week],
                 "pickup_week": [week],
+                "is_holiday": [is_holiday],
             }
         )
         prediction = model_a.predict(X)

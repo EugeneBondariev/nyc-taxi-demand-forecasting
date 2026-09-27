@@ -11,6 +11,7 @@ from .utils import is_valid_file
 from .config import (
     TAXI_DATA_FOLDER,
     WEATHER_DATA_FOLDER,
+    EVENTS_DATA_FOLDER,
     DEMAND_DATA,
     DEMAND_TARGET,
     DB_URL,
@@ -49,6 +50,27 @@ def download_taxi_data(year: int) -> None:
                     raise
         else:
             logger.info(f"The {year}-{i:02d} file already exists - skipping")
+
+
+def download_events_data(year: int) -> None:
+    file = EVENTS_DATA_FOLDER / str(year) / f"holidays-{year}.parquet"
+    file.parent.mkdir(parents=True, exist_ok=True)
+    if not file.exists():
+        logger.info(f"Downloading {year} US public holidays")
+        r = httpx.get(f"https://date.nager.at/api/v3/PublicHolidays/{year}/US")
+        r.raise_for_status()
+        df = pd.DataFrame(r.json())[["date", "name"]]
+        df.to_parquet(file)
+    else:
+        logger.info(f"Holiday data for {year} already exists - skipping")
+
+
+def load_events_data() -> set:
+    dates: set = set()
+    for file in EVENTS_DATA_FOLDER.rglob("*.parquet"):
+        df = pd.read_parquet(file)
+        dates.update(df["date"].astype(str).tolist())
+    return dates
 
 
 def download_weather_data(year: int):
@@ -131,11 +153,19 @@ def clean_weather_data(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def build_demand_table(taxi_df: pd.DataFrame, weather_df: pd.DataFrame) -> pd.DataFrame:
+def add_event_features(demand: pd.DataFrame, holiday_dates: set) -> pd.DataFrame:
+    demand["is_holiday"] = (
+        demand["pickup_hour_ts"].dt.strftime("%Y-%m-%d").isin(holiday_dates).astype(int)
+    )
+    return demand
+
+
+def build_demand_table(
+    taxi_df: pd.DataFrame, weather_df: pd.DataFrame, holiday_dates: set
+) -> pd.DataFrame:
     demand = add_taxi_data(taxi_df)
     demand = add_weather_data(demand, weather_df)
-    print(demand.columns)
-
+    demand = add_event_features(demand, holiday_dates)
     return demand
 
 
@@ -176,6 +206,7 @@ def populate_demand_history(demand: pd.DataFrame) -> None:
                 "temperature_2m",
                 "precipitation",
                 "snowfall",
+                "is_holiday",
             ]
         ]
         .rename(columns={"PULocationID": "zone_id"})
@@ -191,11 +222,14 @@ if __name__ == "__main__":
     setup_logging()
     download_taxi_data(TESTED_YEAR)
     download_weather_data(2025)
+    download_events_data(TESTED_YEAR)
+    download_events_data(2025)
 
     taxi_data = load_and_clean_taxi_data(TAXI_DATA_FOLDER)
     weather_data = load_and_clean_weather_data(WEATHER_DATA_FOLDER)
+    holiday_dates = load_events_data()
 
-    demand = build_demand_table(taxi_data, weather_data)
+    demand = build_demand_table(taxi_data, weather_data, holiday_dates)
     demand.to_parquet(DEMAND_DATA, index=False)
     populate_demand_history(demand)
 

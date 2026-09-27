@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 engine = init_db(DB_URL)
 
 WINDOW_SIZE = 24
-LSTM_FEATURES = ["trip_count", "pickup_hour", "pickup_dow", "temperature_2m", "precipitation", "snowfall"]
+LSTM_FEATURES = ["trip_count", "pickup_hour", "pickup_dow", "temperature_2m", "precipitation", "snowfall", "is_holiday"]
 
 
 def build_sequences(

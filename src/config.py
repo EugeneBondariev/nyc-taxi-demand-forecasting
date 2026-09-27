@@ -20,9 +20,10 @@ MODEL_PATH_FARE_B = ROOT / "models" / "fare_xgb.joblib"
 RAW_DATA_FOLDER = ROOT / "data" / "raw"
 TAXI_DATA_FOLDER = RAW_DATA_FOLDER / "taxi"
 WEATHER_DATA_FOLDER = RAW_DATA_FOLDER / "weather"
+EVENTS_DATA_FOLDER = RAW_DATA_FOLDER / "events"
 DEMAND_DATA = ROOT / "data" / "processed" / "demand.parquet"
 
-DEMAND_FEATURES_A = ["PULocationID", "pickup_hour", "pickup_dow", "pickup_week"]
+DEMAND_FEATURES_A = ["PULocationID", "pickup_hour", "pickup_dow", "pickup_week", "is_holiday"]
 DEMAND_TARGET = "trip_count"
 FARE_AMOUNT_FEATURES_A = ["trip_distance", "Airport_fee", "extra", "trip_duration"]
 FARE_AMOUNT_FEATURES_B = [*FARE_AMOUNT_FEATURES_A, "PULocationID", "DOLocationID"]
