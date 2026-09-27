@@ -94,16 +94,19 @@ def train_model(
     return model
 
 
-def evaluate(model: LSTMModel, X_test: np.ndarray, y_test: np.ndarray) -> float:
+def evaluate(model: LSTMModel, X_test: np.ndarray, y_test: np.ndarray) -> tuple[float, float]:
     model.eval()
     with torch.no_grad():
         preds = model(torch.tensor(X_test)).numpy()
     mae = float(np.mean(np.abs(preds - y_test)))
-    logger.info(f"MAE: {mae:.2f} trips")
-    return mae
+    mape = float(np.mean(np.abs((preds - y_test) / np.where(y_test == 0, 1, y_test))))
+    logger.info(f"MAE: {mae:.2f} trips  MAPE: {mape:.1%}")
+    return mae, mape
 
 
 def save_model(model: LSTMModel, path: Path) -> None:
+    if path.exists():
+        path.replace(path.with_suffix(".prev.pt"))
     torch.save(model.state_dict(), path)
     logger.info(f"Model saved to {path}")
 
@@ -118,7 +121,7 @@ def run_training_pipeline() -> None:
     demand = load_data(DEMAND_DATA)
     X_train, X_test, y_train, y_test = build_sequences(demand)
     model = train_model(X_train, y_train)
-    mae = evaluate(model, X_test, y_test)
+    mae, mape = evaluate(model, X_test, y_test)
     MODEL_PATH_LSTM.parent.mkdir(exist_ok=True)
     save_model(model, MODEL_PATH_LSTM)
     log_to_mlflow(
@@ -126,6 +129,7 @@ def run_training_pipeline() -> None:
         mae,
         LSTM_FEATURES,
         {"epochs": 3, "batch_size": 512, "lr": 0.001, "window_size": WINDOW_SIZE, "hidden_size": 64, "num_layers": 2},
+        mape=mape,
         experiment="demand",
     )
     save_to_database(mae)

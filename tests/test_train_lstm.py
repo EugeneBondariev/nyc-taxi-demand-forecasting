@@ -54,9 +54,10 @@ def test_lstm_model_forward_shape():
     assert out.shape == (4,)
 
 
-def test_evaluate_returns_positive_mae():
+def test_evaluate_returns_positive_mae_and_mape():
     df = _make_lstm_df()
     _, X_test, _, y_test = build_sequences(df, window_size=WINDOW_SIZE)
     model = LSTMModel()
-    mae = evaluate(model, X_test, y_test)
+    mae, mape = evaluate(model, X_test, y_test)
     assert mae > 0
+    assert mape > 0
