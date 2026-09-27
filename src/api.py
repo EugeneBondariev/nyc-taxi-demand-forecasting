@@ -3,13 +3,12 @@ import os
 import random
 import uuid
 from contextlib import asynccontextmanager
-from contextvars import ContextVar
 
 import joblib
 import numpy as np
 import pandas as pd
 import torch
-from fastapi import FastAPI, HTTPException, Request, Security
+from fastapi import APIRouter, FastAPI, HTTPException, Request, Security
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -20,6 +19,7 @@ from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import DB_URL, MODEL_PATH_A, MODEL_PATH_LSTM, ModelName
+from .context import correlation_id_var
 from .database import DemandHistory, ModelVersion, Prediction, init_db
 from .logger import setup_logging
 from .train_lstm import LSTMModel
@@ -30,8 +30,6 @@ model_b = None
 model_a_version_id = None
 model_b_version_id = None
 engine = None
-
-correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default="")
 
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
 limiter = Limiter(key_func=get_remote_address)
@@ -81,8 +79,10 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 app.add_middleware(CorrelationIdMiddleware)
+
+v1 = APIRouter(prefix="/v1")
 
 
 class PredictionRequest(BaseModel):
@@ -102,13 +102,12 @@ class PredictionResponse(BaseModel):
 
 
 @app.get("/health")
+@v1.get("/health")
 def health():
     return {"status": "ok"}
 
 
-@app.post("/predict", dependencies=[Security(verify_api_key)])
-@limiter.limit("60/minute")
-def predict(request: Request, body: PredictionRequest) -> PredictionResponse:
+def _predict_logic(body: PredictionRequest) -> PredictionResponse:
     zone_id = body.zone_id
     hour = body.hour
     day_of_week = body.day_of_week
@@ -151,17 +150,18 @@ def predict(request: Request, body: PredictionRequest) -> PredictionResponse:
         prediction = model_a.predict(X)
         result = round(max(0.0, float(prediction[0])), 2)
 
-    record = Prediction(
-        model_version_id=version_id,
-        zone_id=zone_id,
-        hour=hour,
-        day_of_week=day_of_week,
-        week=week,
-        predicted_trips=result,
-    )
     with Session(engine) as session:
-        session.add(record)
+        session.add(Prediction(
+            model_version_id=version_id,
+            zone_id=zone_id,
+            hour=hour,
+            day_of_week=day_of_week,
+            week=week,
+            predicted_trips=result,
+        ))
         session.commit()
+
+    logger.info(f"zone={zone_id} model={'lstm' if use_model_b else 'xgb'} prediction={result}")
 
     return PredictionResponse(
         zone_id=zone_id,
@@ -170,3 +170,19 @@ def predict(request: Request, body: PredictionRequest) -> PredictionResponse:
         week=week,
         predicted_trips=result,
     )
+
+
+@v1.post("/predict", dependencies=[Security(verify_api_key)])
+@limiter.limit("60/minute")
+def predict_v1(request: Request, body: PredictionRequest) -> PredictionResponse:
+    return _predict_logic(body)
+
+
+# Legacy route — kept for backwards compatibility
+@app.post("/predict", deprecated=True, include_in_schema=False, dependencies=[Security(verify_api_key)])
+@limiter.limit("60/minute")
+def predict(request: Request, body: PredictionRequest) -> PredictionResponse:
+    return _predict_logic(body)
+
+
+app.include_router(v1)
