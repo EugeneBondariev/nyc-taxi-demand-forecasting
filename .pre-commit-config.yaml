@@ -1,0 +1,16 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff
+        entry: ruff
+        language: system
+        args: [check, --fix]
+        types: [python]
+      - id: mypy
+        name: mypy
+        entry: mypy
+        language: system
+        args: [src/]
+        types: [python]
+        pass_filenames: false
