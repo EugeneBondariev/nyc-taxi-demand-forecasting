@@ -25,6 +25,11 @@ EVENTS_DATA_FOLDER = RAW_DATA_FOLDER / "events"
 DEMAND_DATA = ROOT / "data" / "processed" / "demand.parquet"
 
 DEMAND_FEATURES_A = ["PULocationID", "pickup_hour", "pickup_dow", "pickup_week", "is_holiday"]
+DEMAND_FEATURES_V2 = [
+    "PULocationID", "pickup_hour", "pickup_dow", "pickup_week",
+    "is_holiday", "snowfall", "lag_24h", "lag_168h",
+]
+AIRPORT_ZONES: frozenset[int] = frozenset({1, 132, 138})
 DEMAND_TARGET = "trip_count"
 FARE_AMOUNT_FEATURES_A = ["trip_distance", "Airport_fee", "extra", "trip_duration"]
 FARE_AMOUNT_FEATURES_B = [*FARE_AMOUNT_FEATURES_A, "PULocationID", "DOLocationID"]

@@ -164,6 +164,16 @@ def add_event_features(demand: pd.DataFrame, holiday_dates: set) -> pd.DataFrame
     return demand
 
 
+def add_lag_features(demand: pd.DataFrame, lags: list[int] | None = None) -> pd.DataFrame:
+    """Compute per-zone trip_count lags; drop rows without full history."""
+    if lags is None:
+        lags = [24, 168]
+    df = demand.sort_values(["PULocationID", "pickup_hour_ts"]).copy()
+    for lag in lags:
+        df[f"lag_{lag}h"] = df.groupby("PULocationID")["trip_count"].shift(lag)
+    return df.dropna(subset=[f"lag_{lag}h" for lag in lags]).reset_index(drop=True)
+
+
 def build_demand_table(
     taxi_df: pd.DataFrame, weather_df: pd.DataFrame, holiday_dates: set
 ) -> pd.DataFrame:
