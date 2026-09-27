@@ -3,6 +3,7 @@ import os
 import random
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 import joblib
 import numpy as np
@@ -93,6 +94,12 @@ class PredictionRequest(BaseModel):
     is_holiday: int = Field(default=0, ge=0, le=1)
 
 
+class PredictionRequestV1(BaseModel):
+    zone_id: int = Field(ge=1, le=265)
+    prediction_time: datetime
+    is_holiday: int = Field(default=0, ge=0, le=1)
+
+
 class PredictionResponse(BaseModel):
     zone_id: int
     hour: int
@@ -174,8 +181,16 @@ def _predict_logic(body: PredictionRequest) -> PredictionResponse:
 
 @v1.post("/predict", dependencies=[Security(verify_api_key)])
 @limiter.limit("60/minute")
-def predict_v1(request: Request, body: PredictionRequest) -> PredictionResponse:
-    return _predict_logic(body)
+def predict_v1(request: Request, body: PredictionRequestV1) -> PredictionResponse:
+    dt = body.prediction_time
+    internal = PredictionRequest(
+        zone_id=body.zone_id,
+        hour=dt.hour,
+        day_of_week=dt.weekday(),
+        week=dt.isocalendar()[1],
+        is_holiday=body.is_holiday,
+    )
+    return _predict_logic(internal)
 
 
 # Legacy route — kept for backwards compatibility
