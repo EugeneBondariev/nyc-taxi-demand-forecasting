@@ -1,26 +1,29 @@
 import logging
+from datetime import datetime
+from pathlib import Path
+from urllib.error import HTTPError
+from urllib.request import urlretrieve
+
 import httpx
 import pandas as pd
-from urllib.request import urlretrieve
-from urllib.error import HTTPError
-from pathlib import Path
-from datetime import datetime
 from sqlalchemy import insert
 from sqlalchemy.orm import Session
-from .utils import is_valid_file
+
 from .config import (
-    TAXI_DATA_FOLDER,
-    WEATHER_DATA_FOLDER,
-    EVENTS_DATA_FOLDER,
+    DB_URL,
     DEMAND_DATA,
     DEMAND_TARGET,
-    DB_URL,
+    EVENTS_DATA_FOLDER,
+    TAXI_DATA_FOLDER,
+    WEATHER_DATA_FOLDER,
 )
-from .database import init_db, DemandHistory
+from .database import DemandHistory, init_db
 from .logger import setup_logging
+from .utils import is_valid_file
+from .validation import validate_demand, validate_taxi
 
 FIRST_YEAR_AVAILABLE = 2009
-NEXT_YEAR = datetime.now().year + 1
+NEXT_YEAR = datetime.now(tz=None).year + 1  # noqa: DTZ005 — local time intentional for year boundary
 TESTED_YEAR = 2024
 
 logger = logging.getLogger(__name__)
@@ -142,7 +145,7 @@ def load_and_clean_weather_data(path: Path):
         logger.info(f"{file} was successfully processed")
 
     if not dfs:
-        raise ValueError(f"No parquet files found")
+        raise ValueError("No parquet files found")
 
     return pd.concat(dfs, ignore_index=True)
 
@@ -163,9 +166,11 @@ def add_event_features(demand: pd.DataFrame, holiday_dates: set) -> pd.DataFrame
 def build_demand_table(
     taxi_df: pd.DataFrame, weather_df: pd.DataFrame, holiday_dates: set
 ) -> pd.DataFrame:
+    validate_taxi(taxi_df)
     demand = add_taxi_data(taxi_df)
     demand = add_weather_data(demand, weather_df)
     demand = add_event_features(demand, holiday_dates)
+    validate_demand(demand)
     return demand
 
 
