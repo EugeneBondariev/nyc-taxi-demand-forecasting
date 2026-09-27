@@ -1,29 +1,67 @@
 import logging
-import joblib
-import pandas as pd
 from pathlib import Path
-from .features import (
-    download_taxi_data,
-    load_and_clean_taxi_data,
-    build_demand_table,
-)
-from .utils import predict_and_evaluate, get_features_and_target
+
+import joblib
+import numpy as np
+import pandas as pd
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from .config import (
-    MODEL_PATH_A,
-    TAXI_DATA_FOLDER,
+    DB_URL,
     DEMAND_FEATURES_A,
     DEMAND_TARGET,
     MAE_THRESHOLD,
     MAPE_THRESHOLD,
+    MODEL_PATH_A,
+    TAXI_DATA_FOLDER,
+    WEATHER_DATA_FOLDER,
+    ModelName,
 )
-from .train import run_training_pipeline
+from .database import ModelVersion, init_db
+from .features import (
+    build_demand_table,
+    download_events_data,
+    download_taxi_data,
+    download_weather_data,
+    load_and_clean_taxi_data,
+    load_and_clean_weather_data,
+    load_events_data,
+)
 from .logger import setup_logging
+from .train import run_training_pipeline
+from .utils import get_features_and_target, predict_and_evaluate
 
 logger = logging.getLogger(__name__)
 
 
+def detect_drift(current_mae: float, model_name: str, lookback: int = 5) -> bool:
+    engine = init_db(DB_URL)
+    with Session(engine) as session:
+        historical = session.execute(
+            select(ModelVersion.mae)
+            .where(ModelVersion.name == model_name)
+            .order_by(ModelVersion.trained_at.desc())
+            .limit(lookback + 1)
+        ).scalars().all()
+
+    if len(historical) < 3:
+        return False
+
+    baseline_mae = float(np.mean(list(historical)[1:]))
+    drift_pct = (current_mae - baseline_mae) / baseline_mae
+    if drift_pct > 0.10:
+        logger.warning(
+            f"Drift detected: MAE {current_mae:.2f} is {drift_pct:.1%} above "
+            f"baseline {baseline_mae:.2f} (last {lookback} runs)"
+        )
+        return True
+    return False
+
+
 def compare_predictions(mae: float, mape: float) -> None:
-    if mae > MAE_THRESHOLD or mape > MAPE_THRESHOLD:
+    drifted = detect_drift(mae, ModelName.DEMAND_XGB.value)
+    if mae > MAE_THRESHOLD or mape > MAPE_THRESHOLD or drifted:
         logger.warning("Trigger retraining")
         run_training_pipeline()
 
@@ -41,8 +79,20 @@ def monitor_ab_test_version(
 
 
 if __name__ == "__main__":
+    from datetime import datetime
+
     setup_logging()
-    download_taxi_data(2025)
-    df = load_and_clean_taxi_data(TAXI_DATA_FOLDER, 2025, 1)
-    demand = build_demand_table(df)
+    now = datetime.now(tz=None)  # noqa: DTZ005 — local time intentional for pipeline scheduling
+    year = now.year
+    month = now.month
+
+    download_taxi_data(year)
+    download_weather_data(year)
+    download_events_data(year)
+
+    taxi_df = load_and_clean_taxi_data(TAXI_DATA_FOLDER, year, month)
+    weather_df = load_and_clean_weather_data(WEATHER_DATA_FOLDER)
+    holiday_dates = load_events_data()
+
+    demand = build_demand_table(taxi_df, weather_df, holiday_dates)
     monitor_ab_test_version(demand, DEMAND_FEATURES_A, DEMAND_TARGET, MODEL_PATH_A)
