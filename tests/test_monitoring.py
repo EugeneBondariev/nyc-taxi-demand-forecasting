@@ -1,8 +1,10 @@
 import logging
-import pytest
 from unittest.mock import patch
-from src.monitoring import compare_predictions
+
+import pytest
+
 from src.config import MAE_THRESHOLD, MAPE_THRESHOLD
+from src.monitoring import compare_predictions
 
 
 @pytest.mark.parametrize(
@@ -15,7 +17,6 @@ from src.config import MAE_THRESHOLD, MAPE_THRESHOLD
     ],
 )
 def test_compare_predictions(mae, mape, should_retrain, caplog):
-    with patch("src.monitoring.run_training_pipeline"):
-        with caplog.at_level(logging.WARNING):
-            compare_predictions(mae, mape)
+    with patch("src.monitoring.run_training_pipeline"), caplog.at_level(logging.WARNING):
+        compare_predictions(mae, mape)
     assert ("Trigger retraining" in caplog.text) == should_retrain

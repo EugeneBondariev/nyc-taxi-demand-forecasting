@@ -1,16 +1,23 @@
 import logging
+import os
+
+import joblib
+import mlflow
 import numpy as np
 import pandas as pd
 import torch
-import joblib
-import mlflow
-import os
 from scipy import stats
 
-from .config import MODEL_PATH_A, MODEL_PATH_LSTM, DEMAND_DATA, MLFLOW_TRACKING_URI, DEMAND_FEATURES_A
-from .train_lstm import LSTMModel, LSTM_FEATURES, WINDOW_SIZE
-from .utils import load_data
+from .config import (
+    DEMAND_DATA,
+    DEMAND_FEATURES_A,
+    MLFLOW_TRACKING_URI,
+    MODEL_PATH_A,
+    MODEL_PATH_LSTM,
+)
 from .logger import setup_logging
+from .train_lstm import LSTM_FEATURES, WINDOW_SIZE, LSTMModel
+from .utils import load_data
 
 logger = logging.getLogger(__name__)
 

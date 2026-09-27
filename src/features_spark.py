@@ -4,11 +4,11 @@ Requires Java 11+ installed and JAVA_HOME set.
 Produces the same demand.parquet and populates demand_history table.
 """
 import logging
+
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import FloatType
 
-from .config import TAXI_DATA_FOLDER, WEATHER_DATA_FOLDER, DEMAND_DATA, DB_URL
+from .config import DEMAND_DATA, TAXI_DATA_FOLDER, WEATHER_DATA_FOLDER
 from .features import download_taxi_data, download_weather_data, populate_demand_history
 from .logger import setup_logging
 
@@ -86,14 +86,13 @@ def run_features_spark() -> None:
     taxi_raw = spark.read.parquet(str(TAXI_DATA_FOLDER / "**" / "*.parquet"))
 
     logger.info("Cleaning taxi data...")
-    from datetime import datetime
     year = TESTED_YEAR
     cleaned_months = []
     for month in range(1, 13):
         try:
             cleaned_months.append(clean_taxi_spark(taxi_raw, year, month))
-        except Exception:
-            pass
+        except Exception:  # noqa: BLE001
+            logger.debug(f"Skipping month {month} — data not available or invalid")
     taxi_df = cleaned_months[0]
     for df in cleaned_months[1:]:
         taxi_df = taxi_df.union(df)

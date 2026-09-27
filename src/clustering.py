@@ -1,15 +1,15 @@
 import logging
 import os
-import numpy as np
-import pandas as pd
-import mlflow
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import silhouette_score
 
-from .config import DEMAND_DATA, ROOT, MLFLOW_TRACKING_URI
-from .utils import load_data
+import mlflow
+import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+from sklearn.preprocessing import StandardScaler
+
+from .config import DEMAND_DATA, MLFLOW_TRACKING_URI, ROOT
 from .logger import setup_logging
+from .utils import load_data
 
 logger = logging.getLogger(__name__)
 

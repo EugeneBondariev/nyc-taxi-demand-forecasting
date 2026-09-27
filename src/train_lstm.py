@@ -1,13 +1,15 @@
 import logging
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader, TensorDataset
-from pathlib import Path
 from sqlalchemy.orm import Session
-from .config import DEMAND_DATA, MODEL_PATH_LSTM, ModelName, DB_URL
-from .database import init_db, ModelVersion
+from torch import nn
+from torch.utils.data import DataLoader, TensorDataset
+
+from .config import DB_URL, DEMAND_DATA, MODEL_PATH_LSTM, ModelName
+from .database import ModelVersion, init_db
 from .logger import setup_logging
 from .utils import load_data, log_to_mlflow
 

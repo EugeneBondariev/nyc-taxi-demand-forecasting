@@ -1,14 +1,13 @@
 import logging
 import os
-import numpy as np
-import pandas as pd
+
 import mlflow
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
-from .config import DEMAND_DATA, ROOT, MLFLOW_TRACKING_URI
-from .utils import load_data
+from .config import DEMAND_DATA, MLFLOW_TRACKING_URI, ROOT
 from .logger import setup_logging
+from .utils import load_data
 
 logger = logging.getLogger(__name__)
 

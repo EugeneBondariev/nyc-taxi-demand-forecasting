@@ -1,28 +1,30 @@
 import logging
 from collections.abc import Callable
 from pathlib import Path
+
 import pandas as pd
+
 from .config import (
-    TAXI_DATA_FOLDER,
+    DB_URL,
     FARE_AMOUNT_FEATURES_A,
     FARE_AMOUNT_FEATURES_B,
     FARE_TARGET,
     MODEL_PATH_FARE_A,
     MODEL_PATH_FARE_B,
+    TAXI_DATA_FOLDER,
     ModelName,
-    DB_URL,
 )
 from .database import init_db
 from .features import load_and_clean_taxi_data
 from .logger import setup_logging
 from .utils import (
+    log_to_mlflow,
     predict_and_evaluate,
-    split_data,
     save_model,
     save_to_database,
-    train_xgboost,
+    split_data,
     train_linear,
-    log_to_mlflow,
+    train_xgboost,
 )
 
 logger = logging.getLogger(__name__)

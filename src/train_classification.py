@@ -1,21 +1,21 @@
 import logging
 import os
-import numpy as np
-import pandas as pd
-import mlflow
+
 import joblib
+import mlflow
+import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
 from sklearn.metrics import (
+    average_precision_score,
     classification_report,
     roc_auc_score,
-    average_precision_score,
 )
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
-from .config import DEMAND_DATA, ROOT, MLFLOW_TRACKING_URI
-from .utils import load_data, split_data
+from .config import DEMAND_DATA, MLFLOW_TRACKING_URI, ROOT
 from .logger import setup_logging
+from .utils import load_data, split_data
 
 logger = logging.getLogger(__name__)
 

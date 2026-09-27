@@ -21,5 +21,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Lint with ruff
+        run: ruff check src/ tests/
+
+      - name: Type check with mypy
+        run: mypy src/ --ignore-missing-imports --no-strict-optional
+
       - name: Run tests
         run: pytest tests/ -v
