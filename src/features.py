@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import urlretrieve
@@ -27,7 +27,7 @@ from .validation import validate_demand, validate_taxi
 
 FIRST_YEAR_AVAILABLE = 2009
 NEXT_YEAR = (
-    datetime.now(tz=None).year + 1
+    datetime.now(timezone.utc).year + 1
 )
 TESTED_YEAR = 2024
 
