@@ -15,7 +15,7 @@ from sklearn.preprocessing import StandardScaler
 
 from .config import DEMAND_DATA, MLFLOW_TRACKING_URI, ROOT
 from .logger import setup_logging
-from .utils import load_data, split_data
+from .utils import load_data, time_split_df
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def run_training() -> None:
     demand = demand.dropna(subset=FEATURES)
 
     y = make_target(demand)
-    train_df, test_df = split_data(demand, demand["pickup_hour_ts"], "pickup_hour_ts")
+    train_df, test_df = time_split_df(demand, "pickup_hour_ts")
     y_train = y.loc[train_df.index]
     y_test = y.loc[test_df.index]
 

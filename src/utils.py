@@ -27,7 +27,7 @@ def load_data(path: Path) -> pd.DataFrame:
 
 def predict_and_evaluate(
     model: RegressorMixin, X_test: pd.DataFrame, y_test: pd.Series
-) -> tuple[float]:
+) -> tuple[float, float]:
     predictions = model.predict(X_test)
     mae = round(mean_absolute_error(y_pred=predictions, y_true=y_test), 2)
     mape = round(mean_absolute_percentage_error(y_pred=predictions, y_true=y_test), 2)
@@ -36,6 +36,15 @@ def predict_and_evaluate(
     logger.info(f"MAPE: {mape:.1%}")
 
     return mae, mape
+
+
+def time_split_df(
+    df: pd.DataFrame, timestamp_col: str, ratio: float = 0.8
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    min_ts = df[timestamp_col].min()
+    max_ts = df[timestamp_col].max()
+    cutoff = min_ts + (max_ts - min_ts) * ratio
+    return df[df[timestamp_col] < cutoff].copy(), df[df[timestamp_col] >= cutoff].copy()
 
 
 def is_valid_file(file: Path, year: int, month: int) -> bool:

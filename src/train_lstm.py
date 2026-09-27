@@ -23,7 +23,7 @@ LSTM_FEATURES = ["trip_count", "pickup_hour", "pickup_dow", "temperature_2m", "p
 def build_sequences(
     demand: pd.DataFrame, window_size: int = WINDOW_SIZE, ratio: float = 0.8
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    X_train, y_train, X_test, y_test = [], [], [], []
+    x_train_list, y_train_list, x_test_list, y_test_list = [], [], [], []
 
     for _, group in demand.groupby("PULocationID"):
         group = group.sort_values("pickup_hour_ts")
@@ -32,17 +32,17 @@ def build_sequences(
         cutoff = int(len(counts) * ratio)
 
         for i in range(cutoff - window_size):
-            X_train.append(features[i : i + window_size])
-            y_train.append(counts[i + window_size])
+            x_train_list.append(features[i : i + window_size])
+            y_train_list.append(counts[i + window_size])
 
         for i in range(cutoff, len(counts) - window_size):
-            X_test.append(features[i : i + window_size])
-            y_test.append(counts[i + window_size])
+            x_test_list.append(features[i : i + window_size])
+            y_test_list.append(counts[i + window_size])
 
-    X_train = np.array(X_train, dtype=np.float32)
-    y_train = np.array(y_train, dtype=np.float32)
-    X_test = np.array(X_test, dtype=np.float32)
-    y_test = np.array(y_test, dtype=np.float32)
+    X_train = np.array(x_train_list, dtype=np.float32)
+    y_train = np.array(y_train_list, dtype=np.float32)
+    X_test = np.array(x_test_list, dtype=np.float32)
+    y_test = np.array(y_test_list, dtype=np.float32)
 
     return X_train, X_test, y_train, y_test
 

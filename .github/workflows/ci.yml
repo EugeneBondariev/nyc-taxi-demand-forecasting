@@ -25,7 +25,7 @@ jobs:
         run: ruff check src/ tests/
 
       - name: Type check with mypy
-        run: mypy src/ --ignore-missing-imports --no-strict-optional
+        run: mypy src/
 
       - name: Run tests
         run: pytest tests/ -v
