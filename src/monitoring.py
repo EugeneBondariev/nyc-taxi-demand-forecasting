@@ -35,6 +35,7 @@ from .train import run_training_pipeline
 from .utils import get_features_and_target, predict_and_evaluate
 
 logger = logging.getLogger(__name__)
+engine = init_db(DB_URL)
 
 
 def send_alert(message: str) -> None:
@@ -49,7 +50,6 @@ def send_alert(message: str) -> None:
 
 
 def detect_drift(current_mae: float, model_name: str, lookback: int = 5) -> bool:
-    engine = init_db(DB_URL)
     with Session(engine) as session:
         historical = session.execute(
             select(ModelVersion.mae)
