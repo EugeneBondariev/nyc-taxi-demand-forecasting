@@ -5,19 +5,22 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import mlflow
+import numpy as np
 import pandas as pd
 import shap
 
 from .config import (
+    CONFORMAL_MARGIN_PATH,
     DB_URL,
     DEMAND_DATA,
-    DEMAND_FEATURES_A,
+    DEMAND_FEATURES_V2,
     DEMAND_TARGET,
     MODEL_PATH_A,
     ROOT,
     ModelName,
 )
 from .database import init_db
+from .features import add_lag_features
 from .logger import setup_logging
 from .train_lstm import run_training_pipeline as run_lstm_pipeline
 from .utils import (
@@ -68,6 +71,7 @@ def process_ab_test_version(
     model_path: Path,
     model_name: str,
     min_trips: int,
+    conformal_margin_path: Path | None = None,
 ):
     demand = demand[demand["trip_count"] > min_trips]
     X_train, X_test, y_train, y_test = split_data(
@@ -84,16 +88,25 @@ def process_ab_test_version(
     save_model(model, model_path)
     save_to_database(mae, mape, parameters, model_name, engine)
 
+    if conformal_margin_path is not None:
+        residuals = np.abs(y_test.values - model.predict(X_test))
+        margin = float(np.quantile(residuals, 0.80))
+        conformal_margin_path.parent.mkdir(exist_ok=True)
+        np.save(conformal_margin_path, np.array([margin]))
+        logger.info(f"Conformal margin (80%): {margin:.2f} — saved to {conformal_margin_path}")
+
 
 def run_training_pipeline() -> None:
-    demand = load_data(DEMAND_DATA)
+    demand_raw = load_data(DEMAND_DATA)
+    demand = add_lag_features(demand_raw)
     process_ab_test_version(
         demand,
-        DEMAND_FEATURES_A,
+        DEMAND_FEATURES_V2,
         DEMAND_TARGET,
         MODEL_PATH_A,
         ModelName.DEMAND_XGB.value,
         min_trips=0,
+        conformal_margin_path=CONFORMAL_MARGIN_PATH,
     )
     run_lstm_pipeline()
 

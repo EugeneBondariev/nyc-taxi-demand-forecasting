@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.api import app
-from src.config import DEMAND_FEATURES_A, DEMAND_TARGET, ModelName
+from src.config import DEMAND_FEATURES_A, DEMAND_FEATURES_V2, DEMAND_TARGET, ModelName
 from src.database import Prediction
 from src.train import engine, process_ab_test_version
 
@@ -22,6 +22,9 @@ def _make_demand(n: int = 600) -> pd.DataFrame:
         "pickup_dow": ts.dayofweek,
         "pickup_week": ts.isocalendar().week.astype(int),
         "is_holiday": np.zeros(n, dtype=int),
+        "snowfall": rng.uniform(0, 2, n),
+        "lag_24h": rng.integers(1, 100, n).astype(float),
+        "lag_168h": rng.integers(1, 100, n).astype(float),
         "trip_count": rng.integers(1, 100, n),
     })
 
@@ -116,4 +119,4 @@ def test_explain_v1_returns_feature_contributions():
     body = response.json()
     assert "feature_contributions" in body
     assert "PULocationID" in body["feature_contributions"]
-    assert len(body["feature_contributions"]) == 5
+    assert len(body["feature_contributions"]) == len(DEMAND_FEATURES_V2)

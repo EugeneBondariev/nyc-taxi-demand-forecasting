@@ -14,17 +14,24 @@ prediction_time = st.datetime_input(
     value=datetime.now().replace(minute=0, second=0, microsecond=0),
 )
 is_holiday = st.checkbox("Public holiday")
+snowfall = st.slider("Snowfall (cm)", min_value=0.0, max_value=20.0, value=0.0, step=0.5)
 
 if st.button("Get prediction"):
     payload = {
         "zone_id": zone_id,
         "prediction_time": prediction_time.isoformat(),
         "is_holiday": int(is_holiday),
+        "snowfall": snowfall,
     }
     r = httpx.post(f"{API_URL}/v1/predict", json=payload)
 
     if r.is_success:
-        st.markdown(f"Trips prediction: **{r.json()['predicted_trips']}**")
+        data = r.json()
+        st.metric("Predicted trips", data["predicted_trips"])
+        if data.get("lower_bound") is not None:
+            st.markdown(
+                f"**80% interval:** {data['lower_bound']} – {data['upper_bound']} trips"
+            )
         st.badge("Success", icon=":material/check:", color="green")
     else:
         st.error(f"Error {r.status_code}: {r.text}")

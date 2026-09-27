@@ -36,6 +36,9 @@ def test_models():
         "pickup_dow": [0, 3, 5],
         "pickup_week": [1, 26, 52],
         "is_holiday": [0, 0, 1],
+        "snowfall": [0.0, 0.0, 0.5],
+        "lag_24h": [10.0, 20.0, 15.0],
+        "lag_168h": [12.0, 18.0, 14.0],
     })
     y = pd.Series([10.0, 20.0, 30.0])
     model_a.fit(X, y)
