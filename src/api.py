@@ -8,6 +8,7 @@ from datetime import datetime
 import joblib
 import numpy as np
 import pandas as pd
+import shap
 import torch
 from fastapi import APIRouter, FastAPI, HTTPException, Request, Security
 from fastapi.security import APIKeyHeader
@@ -78,7 +79,13 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="NYC Taxi Demand API",
+    description="Real-time trip-count demand forecasting for NYC taxi zones. "
+                "Uses XGBoost (v1) and LSTM (A/B) models with drift-based retraining.",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 app.add_middleware(CorrelationIdMiddleware)
@@ -87,17 +94,23 @@ v1 = APIRouter(prefix="/v1")
 
 
 class PredictionRequest(BaseModel):
-    zone_id: int = Field(ge=1, le=265)
-    hour: int = Field(ge=0, le=23)
-    day_of_week: int = Field(ge=0, le=6)
-    week: int = Field(ge=1, le=53)
-    is_holiday: int = Field(default=0, ge=0, le=1)
+    zone_id: int = Field(ge=1, le=265, description="NYC taxi zone ID (1-265)")
+    hour: int = Field(ge=0, le=23, description="Hour of day (0-23)")
+    day_of_week: int = Field(ge=0, le=6, description="Day of week (0=Monday)")
+    week: int = Field(ge=1, le=53, description="ISO week number (1-53)")
+    is_holiday: int = Field(default=0, ge=0, le=1, description="1 if a US public holiday")
 
 
 class PredictionRequestV1(BaseModel):
-    zone_id: int = Field(ge=1, le=265)
-    prediction_time: datetime
-    is_holiday: int = Field(default=0, ge=0, le=1)
+    zone_id: int = Field(ge=1, le=265, description="NYC taxi zone ID (1-265)")
+    prediction_time: datetime = Field(description="Timestamp for which to forecast demand")
+    is_holiday: int = Field(default=0, ge=0, le=1, description="1 if a US public holiday")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {"zone_id": 161, "prediction_time": "2024-03-05T18:00:00", "is_holiday": 0}
+        }
+    }
 
 
 class PredictionResponse(BaseModel):
@@ -105,11 +118,30 @@ class PredictionResponse(BaseModel):
     hour: int
     day_of_week: int
     week: int
-    predicted_trips: float
+    predicted_trips: float = Field(description="Forecast trip count (≥ 0)")
 
 
-@app.get("/health")
-@v1.get("/health")
+class ExplainRequest(BaseModel):
+    zone_id: int = Field(ge=1, le=265, description="NYC taxi zone ID (1-265)")
+    prediction_time: datetime = Field(description="Timestamp to explain")
+    is_holiday: int = Field(default=0, ge=0, le=1)
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {"zone_id": 161, "prediction_time": "2024-03-05T18:00:00"}
+        }
+    }
+
+
+class ExplainResponse(BaseModel):
+    zone_id: int
+    feature_contributions: dict[str, float] = Field(
+        description="SHAP contribution of each feature to the prediction"
+    )
+
+
+@app.get("/health", summary="Health check")
+@v1.get("/health", summary="Health check")
 def health():
     return {"status": "ok"}
 
@@ -179,7 +211,14 @@ def _predict_logic(body: PredictionRequest) -> PredictionResponse:
     )
 
 
-@v1.post("/predict", dependencies=[Security(verify_api_key)])
+@v1.post(
+    "/predict",
+    summary="Forecast taxi demand",
+    description="Returns the predicted trip count for a zone at the given timestamp. "
+                "Traffic is split 50/50 between XGBoost and LSTM models (A/B test).",
+    response_description="Predicted trip count and the echoed request fields",
+    dependencies=[Security(verify_api_key)],
+)
 @limiter.limit("60/minute")
 def predict_v1(request: Request, body: PredictionRequestV1) -> PredictionResponse:
     dt = body.prediction_time
@@ -191,6 +230,32 @@ def predict_v1(request: Request, body: PredictionRequestV1) -> PredictionRespons
         is_holiday=body.is_holiday,
     )
     return _predict_logic(internal)
+
+
+@v1.post(
+    "/explain",
+    summary="Explain a demand prediction (XGBoost SHAP)",
+    description="Returns per-feature SHAP contributions for the XGBoost model at the given timestamp.",
+    response_description="SHAP feature contributions summing to the model output",
+    dependencies=[Security(verify_api_key)],
+)
+@limiter.limit("60/minute")
+def explain_v1(request: Request, body: ExplainRequest) -> ExplainResponse:
+    dt = body.prediction_time
+    X = pd.DataFrame({
+        "PULocationID": [body.zone_id],
+        "pickup_hour": [dt.hour],
+        "pickup_dow": [dt.weekday()],
+        "pickup_week": [dt.isocalendar()[1]],
+        "is_holiday": [body.is_holiday],
+    })
+    explainer = shap.TreeExplainer(model_a)
+    shap_values = explainer(X)
+    contributions = {
+        col: round(float(shap_values[0, i].values), 4)
+        for i, col in enumerate(X.columns)
+    }
+    return ExplainResponse(zone_id=body.zone_id, feature_contributions=contributions)
 
 
 # Legacy route — kept for backwards compatibility

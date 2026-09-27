@@ -44,7 +44,7 @@ def test_process_ab_test_version_mae_is_positive(tmp_path):
     model_path = tmp_path / "model.joblib"
     captured = {}
 
-    def fake_log(name, mae, *args, **kwargs):
+    def fake_log(_name, mae, *_args, **_kwargs):
         captured["mae"] = mae
 
     with (
@@ -102,5 +102,18 @@ def test_predict_legacy_route_still_works():
         response = client.post(
             "/predict",
             json={"zone_id": 161, "hour": 18, "day_of_week": 2, "week": 10},
-            )
+        )
     assert response.status_code == 200
+
+
+def test_explain_v1_returns_feature_contributions():
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/explain",
+            json={"zone_id": 161, "prediction_time": "2024-03-05T18:00:00"},
+        )
+    assert response.status_code == 200
+    body = response.json()
+    assert "feature_contributions" in body
+    assert "PULocationID" in body["feature_contributions"]
+    assert len(body["feature_contributions"]) == 5
