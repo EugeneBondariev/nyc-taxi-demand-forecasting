@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.baseline import HistoricalMeanBaseline
+from src.baseline import HistoricalMeanBaseline, SeasonalNaiveBaseline
 
 
 def _make_df(n: int = 500) -> pd.DataFrame:
@@ -38,6 +38,47 @@ def test_unknown_key_falls_back_to_global_mean():
     })
     preds = baseline.predict(unknown)
     assert preds[0] == pytest.approx(baseline._global_mean)
+
+
+def _make_ts_df(n_hours: int = 400) -> pd.DataFrame:
+    ts = pd.date_range("2024-01-01", periods=n_hours, freq="h")
+    rng = np.random.default_rng(7)
+    return pd.DataFrame({
+        "PULocationID": np.ones(n_hours, dtype=int),
+        "pickup_hour_ts": ts,
+        "trip_count": rng.integers(1, 100, n_hours).astype(float),
+    })
+
+
+def test_seasonal_naive_predict_shape():
+    df = _make_ts_df()
+    preds = SeasonalNaiveBaseline().fit(df).predict(df)
+    assert preds.shape == (len(df),)
+
+
+def test_seasonal_naive_no_history_falls_back_to_global_mean():
+    df = _make_ts_df(n_hours=400)
+    baseline = SeasonalNaiveBaseline().fit(df)
+    # A row whose lag-168h timestamp is before the training window has no match
+    future = pd.DataFrame({
+        "PULocationID": [1],
+        "pickup_hour_ts": [pd.Timestamp("2020-01-01")],  # far before training
+        "trip_count": [0.0],
+    })
+    preds = baseline.predict(future)
+    assert preds[0] == pytest.approx(baseline._global_mean)
+
+
+def test_seasonal_naive_returns_lag168_values():
+    # 300 hours of data for zone 1; test rows should match training values from 168h prior
+    n = 300
+    ts = pd.date_range("2024-01-01", periods=n, freq="h")
+    trips = np.arange(n, dtype=float)  # deterministic so lag is exact
+    train = pd.DataFrame({"PULocationID": np.ones(n, dtype=int), "pickup_hour_ts": ts, "trip_count": trips})
+    baseline = SeasonalNaiveBaseline().fit(train)
+    test = train.iloc[168:].copy()
+    preds = baseline.predict(test)
+    np.testing.assert_array_almost_equal(preds, trips[:n - 168])
 
 
 def test_beats_trivial_constant():
