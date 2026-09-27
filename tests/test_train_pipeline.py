@@ -33,6 +33,7 @@ def _make_demand(n: int = 600) -> pd.DataFrame:
         "lag_24h": rng.integers(1, 100, n).astype(float),
         "lag_168h": rng.integers(1, 100, n).astype(float),
         "is_airport": pd.Series(zones).isin(AIRPORT_ZONES).astype(int).to_numpy(),
+        "is_nyc_event": np.zeros(n, dtype=int),
         "trip_count": rng.integers(1, 100, n),
     })
 

@@ -31,6 +31,7 @@ from .config import (
 )
 from .context import correlation_id_var
 from .database import DemandHistory, ModelVersion, Prediction, init_db
+from .events import build_event_lookup
 from .logger import setup_logging
 from .train_lstm import LSTMModel
 
@@ -41,6 +42,7 @@ model_a_version_id = None
 model_b_version_id = None
 engine = None
 conformal_margin = None
+nyc_event_lookup: set[tuple[str, int]] = set()
 
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
 limiter = Limiter(key_func=get_remote_address)
@@ -64,7 +66,8 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     setup_logging()
-    global model_a, model_b, model_a_version_id, model_b_version_id, engine, conformal_margin
+    global model_a, model_b, model_a_version_id, model_b_version_id, engine, conformal_margin, nyc_event_lookup
+    nyc_event_lookup = build_event_lookup(list(range(2020, 2036)))
     model_a = joblib.load(MODEL_PATH_A)
     model_b = LSTMModel()
     model_b.load_state_dict(torch.load(MODEL_PATH_LSTM, weights_only=True))
@@ -114,6 +117,7 @@ class PredictionRequest(BaseModel):
     snowfall: float = Field(default=0.0, ge=0.0, description="Snowfall in cm")
     lag_24h: float = Field(default=0.0, ge=0.0, description="Trip count 24 h ago for this zone")
     lag_168h: float = Field(default=0.0, ge=0.0, description="Trip count 168 h ago for this zone")
+    is_nyc_event: int = Field(default=0, ge=0, le=1, description="1 if a major NYC event is near this zone today")
 
 
 class PredictionRequestV1(BaseModel):
@@ -229,6 +233,7 @@ def _predict_logic(body: PredictionRequest) -> PredictionResponse:
             "lag_24h": body.lag_24h,
             "lag_168h": body.lag_168h,
             "is_airport": int(zone_id in AIRPORT_ZONES),
+            "is_nyc_event": body.is_nyc_event,
         }])[DEMAND_FEATURES_V2]
         prediction = model_a.predict(X)
         result = round(max(0.0, float(prediction[0])), 2)
@@ -285,6 +290,7 @@ def predict_v1(request: Request, body: PredictionRequestV1) -> PredictionRespons
         snowfall=body.snowfall,
         lag_24h=lag_24h,
         lag_168h=lag_168h,
+        is_nyc_event=int((dt.strftime("%Y-%m-%d"), body.zone_id) in nyc_event_lookup),
     )
     return _predict_logic(internal)
 
@@ -312,6 +318,7 @@ def explain_v1(request: Request, body: ExplainRequest) -> ExplainResponse:
         "lag_24h": lag_24h,
         "lag_168h": lag_168h,
         "is_airport": int(body.zone_id in AIRPORT_ZONES),
+        "is_nyc_event": int((dt.strftime("%Y-%m-%d"), body.zone_id) in nyc_event_lookup),
     }])[DEMAND_FEATURES_V2]
     explainer = shap.TreeExplainer(model_a)
     shap_values = explainer(X)

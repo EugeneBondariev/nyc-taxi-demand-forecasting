@@ -29,7 +29,7 @@ DEMAND_DATA = ROOT / "data" / "processed" / "demand.parquet"
 DEMAND_FEATURES_A = ["PULocationID", "pickup_hour", "pickup_dow", "pickup_week", "is_holiday"]
 DEMAND_FEATURES_V2 = [
     "PULocationID", "pickup_hour", "pickup_dow", "pickup_week",
-    "is_holiday", "snowfall", "lag_24h", "lag_168h", "is_airport",
+    "is_holiday", "snowfall", "lag_24h", "lag_168h", "is_airport", "is_nyc_event",
 ]
 AIRPORT_ZONES: frozenset[int] = frozenset({1, 132, 138})
 DEMAND_TARGET = "trip_count"

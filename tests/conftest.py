@@ -40,6 +40,7 @@ def test_models():
         "lag_24h": [10.0, 20.0, 15.0],
         "lag_168h": [12.0, 18.0, 14.0],
         "is_airport": [1, 0, 1],
+        "is_nyc_event": [0, 0, 0],
     })
     y = pd.Series([10.0, 20.0, 30.0])
     model_a.fit(X, y)

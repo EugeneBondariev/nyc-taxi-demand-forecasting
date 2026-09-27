@@ -19,13 +19,16 @@ from .config import (
     TAXI_DATA_FOLDER,
     WEATHER_DATA_FOLDER,
 )
+from .events import add_nyc_event_feature, build_event_lookup
 from .database import DemandHistory, init_db
 from .logger import setup_logging
 from .utils import is_valid_file
 from .validation import validate_demand, validate_taxi
 
 FIRST_YEAR_AVAILABLE = 2009
-NEXT_YEAR = datetime.now(tz=None).year + 1  # noqa: DTZ005 — local time intentional for year boundary
+NEXT_YEAR = (
+    datetime.now(tz=None).year + 1
+)  # noqa: DTZ005 — local time intentional for year boundary
 TESTED_YEAR = 2024
 
 logger = logging.getLogger(__name__)
@@ -125,7 +128,7 @@ def clean_taxi_data(df: pd.DataFrame, year: int, month: int) -> pd.DataFrame:
         & (df["tpep_pickup_datetime"].dt.month == month)
     ]
 
-    df = df[(df["trip_distance"] > 0) & (df["fare_amount"] > 0)]
+    df = df[(df["trip_distance"] > 0.15) & (df["fare_amount"] > 3.5)]
     df = df[(df["fare_amount"] <= 150) & (df["trip_distance"] <= 40)]
     df[["Airport_fee", "extra"]] = df[["Airport_fee", "extra"]].fillna(0)
 
@@ -165,7 +168,9 @@ def add_event_features(demand: pd.DataFrame, holiday_dates: set) -> pd.DataFrame
     return demand
 
 
-def add_lag_features(demand: pd.DataFrame, lags: list[int] | None = None) -> pd.DataFrame:
+def add_lag_features(
+    demand: pd.DataFrame, lags: list[int] | None = None
+) -> pd.DataFrame:
     """Compute per-zone trip_count lags; drop rows without full history."""
     if lags is None:
         lags = [24, 168]
@@ -182,6 +187,8 @@ def build_demand_table(
     demand = add_taxi_data(taxi_df)
     demand = add_weather_data(demand, weather_df)
     demand = add_event_features(demand, holiday_dates)
+    years = demand["pickup_hour_ts"].dt.year.unique().tolist()
+    demand = add_nyc_event_feature(demand, build_event_lookup(years))
     validate_demand(demand)
     return demand
 
