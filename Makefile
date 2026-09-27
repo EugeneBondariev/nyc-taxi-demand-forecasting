@@ -57,3 +57,13 @@ dvc-push:
 
 dvc-pull:
 	$(PYTHON) -m dvc pull
+
+k8s-deploy:
+	kubectl create secret generic uber-secrets \
+		--from-literal=database-url=$(DATABASE_URL) \
+		--from-literal=api-key=$(API_KEY) \
+		--dry-run=client -o yaml | kubectl apply -f -
+	kubectl create configmap uber-config \
+		--from-literal=mlflow-uri=$(MLFLOW_TRACKING_URI) \
+		--dry-run=client -o yaml | kubectl apply -f -
+	kubectl apply -f k8s/
