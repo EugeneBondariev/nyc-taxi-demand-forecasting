@@ -20,9 +20,7 @@ from ..core.config import (
     ModelName,
 )
 from ..core.database import init_db
-from ..data.features import add_lag_features
 from ..core.logger import setup_logging
-from .train_lstm import run_training_pipeline as run_lstm_pipeline
 from ..core.utils import (
     compute_sample_weights,
     ensure_parent,
@@ -35,6 +33,8 @@ from ..core.utils import (
     split_data,
     train_xgboost,
 )
+from ..data.features import add_lag_features
+from .train_lstm import run_training_pipeline as run_lstm_pipeline
 
 os.environ["MLFLOW_ARTIFACT_ROOT"] = str(ROOT / "mlflow_artifacts")
 

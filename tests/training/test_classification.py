@@ -1,7 +1,11 @@
 import numpy as np
 import pandas as pd
 
-from src.training.train_classification import FEATURES, HIGH_DEMAND_QUANTILE, make_target
+from src.training.train_classification import (
+    FEATURES,
+    HIGH_DEMAND_QUANTILE,
+    make_target,
+)
 
 
 def _make_demand(n=300):

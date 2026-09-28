@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from src.serving.api import app
 from src.core.config import (
     AIRPORT_ZONES,
     DEMAND_FEATURES_A,
@@ -15,6 +14,7 @@ from src.core.config import (
     ModelName,
 )
 from src.core.database import Prediction
+from src.serving.api import app
 from src.training.train import engine, process_ab_test_version
 
 

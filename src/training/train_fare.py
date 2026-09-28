@@ -15,7 +15,6 @@ from ..core.config import (
     ModelName,
 )
 from ..core.database import init_db
-from ..data.features import load_and_clean_taxi_data
 from ..core.logger import setup_logging
 from ..core.utils import (
     log_to_mlflow,
@@ -26,6 +25,7 @@ from ..core.utils import (
     train_linear,
     train_xgboost,
 )
+from ..data.features import load_and_clean_taxi_data
 
 logger = logging.getLogger(__name__)
 engine = init_db(DB_URL)

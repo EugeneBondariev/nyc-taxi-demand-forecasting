@@ -2,12 +2,12 @@ import calendar
 import json
 import logging
 import os
+from pathlib import Path
+
 import joblib
 import mlflow
 import numpy as np
 import pandas as pd
-
-from pathlib import Path
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
@@ -143,9 +143,7 @@ def is_valid_file(file: Path, year: int, month: int) -> bool:
         last_day = calendar.monthrange(year, month)[1]
         expected_last = pd.Timestamp(year=year, month=month, day=last_day)
         return df["tpep_pickup_datetime"].max().normalize() >= expected_last
-    except (
-        Exception
-    ):  # noqa: BLE001 — any read/parse failure means the file is unusable
+    except Exception:  # noqa: BLE001
         return False
 
 
@@ -230,8 +228,7 @@ def log_to_mlflow(
             mlflow.log_metric("mae", mae)
         if mape is not None:
             mlflow.log_metric("mape", mape)
-        if params:
-            mlflow.log_params(params)
+        mlflow.log_params(params)
         if features:
             mlflow.log_param("features", ", ".join(features))
         if tags:
@@ -251,7 +248,7 @@ def log_to_mlflow(
             logger.info(
                 f"Registered {model_name} v{mv.version} as champion in MLflow registry"
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"MLflow registry unavailable — model not registered: {e}")
 
 

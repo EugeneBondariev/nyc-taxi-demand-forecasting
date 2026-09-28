@@ -14,10 +14,10 @@ from ..core.config import (
     MODEL_PATH_A,
     MODEL_PATH_LSTM,
 )
-from ..data.features import add_lag_features
 from ..core.logger import setup_logging
-from ..training.train_lstm import LSTM_FEATURES, WINDOW_SIZE, LSTMModel
 from ..core.utils import load_data, log_to_mlflow
+from ..data.features import add_lag_features
+from ..training.train_lstm import LSTM_FEATURES, WINDOW_SIZE, LSTMModel
 
 logger = logging.getLogger(__name__)
 

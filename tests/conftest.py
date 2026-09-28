@@ -14,9 +14,9 @@ from xgboost import XGBRegressor
 
 from src.core.config import MODEL_PATH_A, MODEL_PATH_LSTM, ModelName
 from src.core.database import Base
+from src.core.utils import save_to_database
 from src.training.train import engine
 from src.training.train_lstm import LSTMModel
-from src.core.utils import save_to_database
 
 
 @pytest.fixture(scope="session", autouse=True)

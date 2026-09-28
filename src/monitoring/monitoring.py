@@ -21,6 +21,12 @@ from ..core.config import (
     ModelName,
 )
 from ..core.database import ModelVersion, init_db
+from ..core.logger import setup_logging
+from ..core.utils import (
+    detect_feature_drift,
+    get_features_and_target,
+    predict_and_evaluate,
+)
 from ..data.features import (
     build_demand_table,
     download_events_data,
@@ -30,9 +36,7 @@ from ..data.features import (
     load_and_clean_weather_data,
     load_events_data,
 )
-from ..core.logger import setup_logging
 from ..training.train import run_training_pipeline
-from ..core.utils import detect_feature_drift, get_features_and_target, predict_and_evaluate
 
 logger = logging.getLogger(__name__)
 engine = init_db(DB_URL)

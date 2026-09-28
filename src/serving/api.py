@@ -34,11 +34,11 @@ from ..core.config import (
 )
 from ..core.context import correlation_id_var
 from ..core.database import DemandHistory, ModelVersion, Prediction, init_db
+from ..core.logger import setup_logging
+from ..core.utils import detect_feature_drift
 from ..data.events import build_event_lookup
 from ..data.features import load_events_data
-from ..core.logger import setup_logging
 from ..training.train_lstm import LSTMModel
-from ..core.utils import detect_feature_drift
 
 logger = logging.getLogger(__name__)
 model_a = None
@@ -78,7 +78,7 @@ async def lifespan(_: FastAPI):
     try:
         model_a = mlflow.sklearn.load_model(f"models:/{ModelName.DEMAND_XGB.value}@champion")
         logger.info("Loaded XGBoost model from MLflow registry (champion)")
-    except Exception:
+    except Exception:  # noqa: BLE001
         model_a = joblib.load(MODEL_PATH_A)
         logger.info("Loaded XGBoost model from local file (registry unavailable)")
     try:
@@ -86,7 +86,7 @@ async def lifespan(_: FastAPI):
         model_b.load_state_dict(torch.load(MODEL_PATH_LSTM, weights_only=True))
         model_b.eval()
         logger.info("Models loaded successfully")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         model_b = None
         logger.warning(f"LSTM model failed to load — A/B test will use XGBoost only: {e}")
     if CONFORMAL_MARGIN_PATH.exists():
@@ -223,8 +223,8 @@ def _fetch_snowfall(dt: datetime) -> float:
         snowfall_vals = data["hourly"]["snowfall"]
         if target in hours:
             return float(snowfall_vals[hours.index(target)])
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001
+        logger.debug("Snowfall fetch failed, defaulting to 0.0")
     return 0.0
 
 
