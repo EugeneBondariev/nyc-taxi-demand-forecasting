@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 engine = init_db(DB_URL)
 
 WINDOW_SIZE = 24
+TOP_N_ZONES = 50  # train on the 50 highest-demand zones; full 265 takes hours on CPU
 LSTM_FEATURES = [
     "trip_count",
     "pickup_hour",
@@ -156,13 +157,17 @@ def run_training_pipeline() -> None:
     demand = load_data(DEMAND_DATA)
     latest_year = demand["pickup_hour_ts"].dt.year.max()
     demand = demand[demand["pickup_hour_ts"].dt.year == latest_year]
+    top_zones = demand.groupby("PULocationID")["trip_count"].sum().nlargest(TOP_N_ZONES).index
+    demand = demand[demand["PULocationID"].isin(top_zones)]
+    logger.info(f"LSTM training on top {TOP_N_ZONES} zones ({len(demand):,} rows)")
     X_train, X_test, y_train, y_test = build_sequences(demand=demand)
-    model = train_model(X_train=X_train, y_train=y_train, epochs=10)
+    epochs = 10
+    model = train_model(X_train=X_train, y_train=y_train, epochs=epochs)
     mae, mape = evaluate(model=model, X_test=X_test, y_test=y_test)
     ensure_parent(MODEL_PATH_LSTM)
     save_model(model, MODEL_PATH_LSTM)
     lstm_params = {
-        "max_epochs": 20,
+        "max_epochs": epochs,
         "batch_size": 512,
         "lr": 0.001,
         "patience": 3,
@@ -170,6 +175,7 @@ def run_training_pipeline() -> None:
         "hidden_size": 64,
         "num_layers": 2,
         "early_stopping": True,
+        "top_n_zones": TOP_N_ZONES,
     }
     log_to_mlflow(
         model_name=ModelName.DEMAND_LSTM.value,
