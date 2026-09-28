@@ -2,9 +2,9 @@ import pandas as pd
 
 from src.core.config import (
     CONFORMAL_MARGIN_PATH,
+    DEMAND_DATA,
     DEMAND_FEATURES_A,
     DEMAND_TARGET,
-    DEMAND_DATA,
     FEATURE_STATS_PATH,
     MODEL_PATH_A,
     MODEL_PATH_FARE_A,
