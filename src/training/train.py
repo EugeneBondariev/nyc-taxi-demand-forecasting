@@ -99,9 +99,9 @@ def process_ab_test_version(
     log_to_mlflow(
         model_name=model_name,
         mae=mae,
+        mape=mape,
         features=demand_features,
         params=parameters,
-        mape=mape,
         shap_importances=shap_importances,
         experiment="demand",
         model=model,

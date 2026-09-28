@@ -48,7 +48,7 @@ def train_fare_version(
     )
     model, params = model_fn(X_train, y_train, **model_kwargs)
     mae, mape = predict_and_evaluate(model=model, X_test=X_test, y_test=y_test)
-    log_to_mlflow(model_name=model_name, mae=mae, features=features, params=params, mape=mape, experiment="fare")
+    log_to_mlflow(model_name=model_name, mae=mae, mape=mape, features=features, params=params, experiment="fare")
     model_path.parent.mkdir(exist_ok=True)
     save_model(model=model, path=model_path)
     save_to_database(mae=mae, mape=mape, parameters=params, model_name=model_name, engine=engine)

@@ -174,9 +174,9 @@ def run_training_pipeline() -> None:
     log_to_mlflow(
         model_name=ModelName.DEMAND_LSTM.value,
         mae=mae,
+        mape=mape,
         features=LSTM_FEATURES,
         params=lstm_params,
-        mape=mape,
         experiment="demand",
     )
     save_to_database(
