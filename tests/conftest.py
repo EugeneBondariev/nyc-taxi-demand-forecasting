@@ -27,7 +27,7 @@ def reset_db():
 
 @pytest.fixture(scope="session", autouse=True)
 def test_models():
-    MODEL_PATH_A.parent.mkdir(exist_ok=True)
+    MODEL_PATH_A.parent.mkdir(parents=True, exist_ok=True)
 
     model_a = XGBRegressor(n_estimators=1, random_state=42)
     X = pd.DataFrame({
@@ -47,7 +47,7 @@ def test_models():
     joblib.dump(model_a, MODEL_PATH_A)
     save_to_database(mae=5, mape=0.1, parameters={"n_estimators": 1, "learning_rate": 0.3}, model_name=ModelName.DEMAND_XGB.value, engine=engine)
 
-    MODEL_PATH_LSTM.parent.mkdir(exist_ok=True)
+    MODEL_PATH_LSTM.parent.mkdir(parents=True, exist_ok=True)
     torch.save(LSTMModel().state_dict(), MODEL_PATH_LSTM)
     save_to_database(mae=6, mape=0.1, parameters={}, model_name=ModelName.DEMAND_LSTM.value, engine=engine)
 
