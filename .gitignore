@@ -3,4 +3,8 @@ data/
 __pycache__/
 *.pyc
 .env
-test.db
+*.db
+*.log
+.claude/
+models/**/*.prev.joblib
+mlflow_artifacts/

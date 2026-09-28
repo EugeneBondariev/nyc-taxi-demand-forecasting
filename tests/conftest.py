@@ -3,8 +3,8 @@ from pathlib import Path
 
 # Must be set before any src imports so load_dotenv() doesn't override them
 os.environ["DATABASE_URL"] = "sqlite:///./test.db"
-os.environ["MODEL_PATH_A"] = str(Path(__file__).parent / "models" / "xgb_demand_a.joblib")
-os.environ["MODEL_PATH_LSTM"] = str(Path(__file__).parent / "models" / "lstm_demand.pt")
+os.environ["MODEL_PATH_A"] = str(Path(__file__).parent / "models" / "demand" / "xgb_demand_a.joblib")
+os.environ["MODEL_PATH_LSTM"] = str(Path(__file__).parent / "models" / "demand" / "lstm_demand.pt")
 
 import joblib
 import pandas as pd

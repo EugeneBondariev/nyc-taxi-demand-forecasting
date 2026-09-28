@@ -25,7 +25,7 @@ FEATURES = [
     "PULocationID", "pickup_hour", "pickup_dow", "pickup_week",
     "temperature_2m", "precipitation", "snowfall", "is_holiday",
 ]
-MODEL_PATH = ROOT / "models" / "demand_classifier.joblib"
+MODEL_PATH = ROOT / "models" / "demand" / "demand_classifier.joblib"
 HIGH_DEMAND_QUANTILE = 0.75
 
 
