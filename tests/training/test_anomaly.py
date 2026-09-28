@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 
@@ -23,32 +22,30 @@ def _make_demand(n=500):
     return df
 
 
-def test_features_present_in_synthetic_data():
-    df = _make_demand()
-    assert all(f in df.columns for f in FEATURES)
+class TestAnomalyDetection:
+    def test_features_present_in_synthetic_data(self):
+        df = _make_demand()
+        assert all(f in df.columns for f in FEATURES)
 
+    def test_contamination_default(self):
+        assert 0 < CONTAMINATION < 1
 
-def test_contamination_default():
-    assert 0 < CONTAMINATION < 1
+    def test_flags_expected_rate(self):
+        from sklearn.ensemble import IsolationForest
+        from sklearn.preprocessing import StandardScaler
 
+        df = _make_demand(n=1000)
+        df = df.dropna(subset=FEATURES)
 
-def test_anomaly_detection_flags_expected_rate():
-    from sklearn.ensemble import IsolationForest
-    from sklearn.preprocessing import StandardScaler
+        scaler = StandardScaler()
+        X = scaler.fit_transform(df[FEATURES])
 
-    df = _make_demand(n=1000)
-    df = df.dropna(subset=FEATURES)
+        iso = IsolationForest(contamination=CONTAMINATION, random_state=42)
+        df["is_anomaly"] = iso.fit_predict(X) == -1
 
-    scaler = StandardScaler()
-    X = scaler.fit_transform(df[FEATURES])
+        rate = df["is_anomaly"].mean()
+        assert abs(rate - CONTAMINATION) < 0.02
 
-    iso = IsolationForest(contamination=CONTAMINATION, random_state=42)
-    df["is_anomaly"] = iso.fit_predict(X) == -1
-
-    rate = df["is_anomaly"].mean()
-    assert abs(rate - CONTAMINATION) < 0.02
-
-
-def test_anomaly_detection_no_nan_features():
-    df = _make_demand()
-    assert df[FEATURES].isna().sum().sum() == 0
+    def test_no_nan_features(self):
+        df = _make_demand()
+        assert df[FEATURES].isna().sum().sum() == 0

@@ -20,22 +20,20 @@ def _make_demand(n=300):
     })
 
 
-def test_make_target_binary():
-    y = make_target(_make_demand())
-    assert set(y.unique()).issubset({0, 1})
+class TestMakeTarget:
+    def test_binary(self):
+        y = make_target(_make_demand())
+        assert set(y.unique()).issubset({0, 1})
 
+    def test_correct_high_demand_fraction(self):
+        demand = _make_demand(n=10_000)
+        y = make_target(demand)
+        expected = 1 - HIGH_DEMAND_QUANTILE
+        assert abs(y.mean() - expected) < 0.02
 
-def test_make_target_correct_high_demand_fraction():
-    demand = _make_demand(n=10_000)
-    y = make_target(demand)
-    expected = 1 - HIGH_DEMAND_QUANTILE
-    assert abs(y.mean() - expected) < 0.02
+    def test_length_matches(self):
+        demand = _make_demand()
+        assert len(make_target(demand)) == len(demand)
 
-
-def test_make_target_length_matches():
-    demand = _make_demand()
-    assert len(make_target(demand)) == len(demand)
-
-
-def test_features_present_in_synthetic_data():
-    assert all(f in _make_demand().columns for f in FEATURES)
+    def test_features_present_in_synthetic_data(self):
+        assert all(f in _make_demand().columns for f in FEATURES)

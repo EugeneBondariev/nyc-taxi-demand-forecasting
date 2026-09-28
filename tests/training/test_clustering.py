@@ -11,24 +11,22 @@ def _make_demand():
     ])
 
 
-def test_build_zone_profiles_shape():
-    profiles = build_zone_profiles(_make_demand())
-    assert profiles.shape == (3, 24)
+class TestBuildZoneProfiles:
+    def test_shape(self):
+        profiles = build_zone_profiles(_make_demand())
+        assert profiles.shape == (3, 24)
 
+    def test_no_missing(self):
+        profiles = build_zone_profiles(_make_demand())
+        assert profiles.isna().sum().sum() == 0
 
-def test_build_zone_profiles_no_missing():
-    profiles = build_zone_profiles(_make_demand())
-    assert profiles.isna().sum().sum() == 0
+    def test_values(self):
+        profiles = build_zone_profiles(_make_demand())
+        assert profiles.loc[1, 5] == 15.0   # zone 1, hour 5 → 1*10 + 5
+        assert profiles.loc[2, 0] == 20.0   # zone 2, hour 0 → 2*10 + 0
 
-
-def test_build_zone_profiles_values():
-    profiles = build_zone_profiles(_make_demand())
-    assert profiles.loc[1, 5] == 15.0   # zone 1, hour 5 → 1*10 + 5
-    assert profiles.loc[2, 0] == 20.0   # zone 2, hour 0 → 2*10 + 0
-
-
-def test_build_zone_profiles_fill_missing_hour():
-    df = _make_demand()
-    df = df[~((df["PULocationID"] == 1) & (df["pickup_hour"] == 3))]
-    profiles = build_zone_profiles(df)
-    assert profiles.loc[1, 3] == 0.0
+    def test_fill_missing_hour(self):
+        df = _make_demand()
+        df = df[~((df["PULocationID"] == 1) & (df["pickup_hour"] == 3))]
+        profiles = build_zone_profiles(df)
+        assert profiles.loc[1, 3] == 0.0

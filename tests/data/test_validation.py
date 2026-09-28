@@ -29,39 +29,37 @@ def _valid_taxi() -> pd.DataFrame:
     })
 
 
-def test_valid_demand_passes():
-    result = validate_demand(_valid_demand())
-    assert len(result) == 1
+class TestValidateDemand:
+    def test_valid_passes(self):
+        result = validate_demand(_valid_demand())
+        assert len(result) == 1
+
+    def test_invalid_zone_id_fails(self):
+        df = _valid_demand()
+        df["PULocationID"] = 999
+        with pytest.raises(pa.errors.SchemaErrors):
+            validate_demand(df)
+
+    def test_negative_trip_count_fails(self):
+        df = _valid_demand()
+        df["trip_count"] = -1
+        with pytest.raises(pa.errors.SchemaErrors):
+            validate_demand(df)
+
+    def test_invalid_is_holiday_fails(self):
+        df = _valid_demand()
+        df["is_holiday"] = 2
+        with pytest.raises(pa.errors.SchemaErrors):
+            validate_demand(df)
 
 
-def test_invalid_zone_id_fails():
-    df = _valid_demand()
-    df["PULocationID"] = 999
-    with pytest.raises(pa.errors.SchemaErrors):
-        validate_demand(df)
+class TestValidateTaxi:
+    def test_valid_passes(self):
+        result = validate_taxi(_valid_taxi())
+        assert len(result) == 1
 
-
-def test_negative_trip_count_fails():
-    df = _valid_demand()
-    df["trip_count"] = -1
-    with pytest.raises(pa.errors.SchemaErrors):
-        validate_demand(df)
-
-
-def test_invalid_is_holiday_fails():
-    df = _valid_demand()
-    df["is_holiday"] = 2
-    with pytest.raises(pa.errors.SchemaErrors):
-        validate_demand(df)
-
-
-def test_valid_taxi_passes():
-    result = validate_taxi(_valid_taxi())
-    assert len(result) == 1
-
-
-def test_zero_trip_distance_fails():
-    df = _valid_taxi()
-    df["trip_distance"] = 0.0
-    with pytest.raises(pa.errors.SchemaErrors):
-        validate_taxi(df)
+    def test_zero_trip_distance_fails(self):
+        df = _valid_taxi()
+        df["trip_distance"] = 0.0
+        with pytest.raises(pa.errors.SchemaErrors):
+            validate_taxi(df)

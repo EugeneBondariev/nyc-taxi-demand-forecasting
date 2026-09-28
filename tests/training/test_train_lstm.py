@@ -29,35 +29,35 @@ def _make_lstm_df(n_zones: int = 2, n_hours: int = 150) -> pd.DataFrame:
     })
 
 
-def test_build_sequences_output_shape():
-    df = _make_lstm_df()
-    X_train, _, y_train, _ = build_sequences(df, window_size=WINDOW_SIZE)
-    assert X_train.ndim == 3
-    assert X_train.shape[2] == len(LSTM_FEATURES)
-    assert y_train.ndim == 1
-    assert X_train.shape[0] == y_train.shape[0]
+class TestBuildSequences:
+    def test_output_shape(self):
+        df = _make_lstm_df()
+        X_train, _, y_train, _ = build_sequences(df, window_size=WINDOW_SIZE)
+        assert X_train.ndim == 3
+        assert X_train.shape[2] == len(LSTM_FEATURES)
+        assert y_train.ndim == 1
+        assert X_train.shape[0] == y_train.shape[0]
+
+    def test_no_data_leakage(self):
+        df = _make_lstm_df(n_zones=1, n_hours=150)
+        X_train, X_test, _, _ = build_sequences(df, window_size=WINDOW_SIZE)
+        assert X_train.shape[0] > 0
+        assert X_test.shape[0] > 0
+        # train set comes from the first 80% of the time range, test from the remaining 20%
+        assert X_train.shape[0] > X_test.shape[0]
 
 
-def test_build_sequences_no_data_leakage():
-    df = _make_lstm_df(n_zones=1, n_hours=150)
-    X_train, X_test, _, _ = build_sequences(df, window_size=WINDOW_SIZE)
-    assert X_train.shape[0] > 0
-    assert X_test.shape[0] > 0
-    # train set comes from the first 80% of the time range, test from the remaining 20%
-    assert X_train.shape[0] > X_test.shape[0]
+class TestLstmModel:
+    def test_forward_shape(self):
+        model = LSTMModel()
+        x = torch.randn(4, WINDOW_SIZE, len(LSTM_FEATURES))
+        out = model(x)
+        assert out.shape == (4,)
 
-
-def test_lstm_model_forward_shape():
-    model = LSTMModel()
-    x = torch.randn(4, WINDOW_SIZE, len(LSTM_FEATURES))
-    out = model(x)
-    assert out.shape == (4,)
-
-
-def test_evaluate_returns_positive_mae_and_mape():
-    df = _make_lstm_df()
-    _, X_test, _, y_test = build_sequences(df, window_size=WINDOW_SIZE)
-    model = LSTMModel()
-    mae, mape = evaluate(model, X_test, y_test)
-    assert mae > 0
-    assert mape > 0
+    def test_evaluate_returns_positive_mae_and_mape(self):
+        df = _make_lstm_df()
+        _, X_test, _, y_test = build_sequences(df, window_size=WINDOW_SIZE)
+        model = LSTMModel()
+        mae, mape = evaluate(model, X_test, y_test)
+        assert mae > 0
+        assert mape > 0
