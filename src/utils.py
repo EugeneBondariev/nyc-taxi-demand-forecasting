@@ -2,13 +2,13 @@ import calendar
 import json
 import logging
 import os
-from pathlib import Path
-
 import joblib
 import mlflow
 import numpy as np
 import pandas as pd
-from sklearn.base import RegressorMixin
+
+from pathlib import Path
+from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
 from sqlalchemy.engine import Engine
@@ -45,15 +45,30 @@ def compute_sample_weights(X_train: pd.DataFrame, y_train: pd.Series) -> np.ndar
     return (combined / combined.mean()).astype(np.float32)
 
 
-def save_feature_baseline(df: pd.DataFrame, features: list[str]) -> None:
+def _col_array(df: pd.DataFrame, feat: str) -> np.ndarray:
+    return df[feat].dropna().values.astype(float)
+
+
+def save_feature_baseline(
+    df: pd.DataFrame,
+    features: list[str],
+    categorical_features: set[str] | None = None,
+) -> None:
     """Persist per-feature decile breakpoints for PSI drift detection."""
+    skip = categorical_features or set()
     baseline: dict = {}
     for feat in features:
-        col = df[feat].dropna().values.astype(float)
-        baseline[feat] = {
-            "breakpoints": np.percentile(col, np.linspace(0, 100, 11)).tolist(),
-            "n": len(col),
-        }
+        if feat in skip:
+            logger.debug(f"Skipping {feat} from baseline: nominal categorical")
+            continue
+        col = _col_array(df, feat)
+        breakpoints = np.percentile(col, np.linspace(0, 100, 11))
+        if len(np.unique(breakpoints)) < len(breakpoints):
+            logger.debug(
+                f"Skipping {feat} from baseline: bins collapse (low cardinality)"
+            )
+            continue
+        baseline[feat] = {"breakpoints": breakpoints.tolist(), "n": len(col)}
     ensure_parent(FEATURE_STATS_PATH)
     with open(FEATURE_STATS_PATH, "w") as f:
         json.dump(baseline, f)
@@ -68,21 +83,22 @@ def _compute_psi(breakpoints: list[float], actual: np.ndarray) -> float:
     actual_counts = np.histogram(actual, bins=bins)[0]
     actual_pct = np.clip(actual_counts / max(len(actual), 1), 1e-6, None)
     actual_pct = actual_pct / actual_pct.sum()
-    return float(np.sum((actual_pct - expected_pct) * np.log(actual_pct / expected_pct)))
+    return float(
+        np.sum((actual_pct - expected_pct) * np.log(actual_pct / expected_pct))
+    )
 
 
-def detect_feature_drift(df: pd.DataFrame, features: list[str], threshold: float = 0.2) -> list[str]:
+def detect_feature_drift(df: pd.DataFrame, threshold: float = 0.2) -> list[str]:
     if not FEATURE_STATS_PATH.exists():
         logger.info("No feature baseline — skipping drift check")
         return []
     with open(FEATURE_STATS_PATH) as f:
         baseline = json.load(f)
     drifted = []
-    for feat in features:
-        if feat not in baseline or feat not in df.columns:
+    for feat, stats in baseline.items():
+        if feat not in df.columns:
             continue
-        col = df[feat].dropna().values.astype(float)
-        psi = _compute_psi(baseline[feat]["breakpoints"], col)
+        psi = _compute_psi(stats["breakpoints"], _col_array(df, feat))
         if psi > threshold:
             logger.warning(f"Feature drift: {feat}  PSI={psi:.3f} > {threshold}")
             drifted.append(feat)
@@ -109,10 +125,16 @@ def predict_and_evaluate(
 def time_split_df(
     df: pd.DataFrame, timestamp_col: str, ratio: float = 0.8
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if timestamp_col not in df.columns:
+        raise ValueError(
+            f"timestamp_col '{timestamp_col}' not found in DataFrame columns: {list(df.columns)}"
+        )
     min_ts = df[timestamp_col].min()
     max_ts = df[timestamp_col].max()
     cutoff = min_ts + (max_ts - min_ts) * ratio
-    return df[df[timestamp_col] < cutoff].copy(), df[df[timestamp_col] >= cutoff].copy()
+    train = df[df[timestamp_col] < cutoff].copy()
+    test = df[df[timestamp_col] >= cutoff].copy()
+    return train, test
 
 
 def is_valid_file(file: Path, year: int, month: int) -> bool:
@@ -121,7 +143,9 @@ def is_valid_file(file: Path, year: int, month: int) -> bool:
         last_day = calendar.monthrange(year, month)[1]
         expected_last = pd.Timestamp(year=year, month=month, day=last_day)
         return df["tpep_pickup_datetime"].max().normalize() >= expected_last
-    except Exception:  # noqa: BLE001 — any read/parse failure means the file is unusable
+    except (
+        Exception
+    ):  # noqa: BLE001 — any read/parse failure means the file is unusable
         return False
 
 
@@ -134,7 +158,9 @@ def get_features_and_target(
     return X, y
 
 
-def train_linear(X_train: pd.DataFrame, y_train: pd.Series) -> tuple[LinearRegression, dict]:
+def train_linear(
+    X_train: pd.DataFrame, y_train: pd.Series
+) -> tuple[LinearRegression, dict]:
     model = LinearRegression()
     model.fit(X_train, y_train)
     logger.info("Linear regression training complete")
@@ -145,14 +171,16 @@ def train_xgboost(
     X_train: pd.DataFrame,
     y_train: pd.Series,
     max_depth: int = 9,
+    n_estimators: int = 300,
+    learning_rate: float = 0.05,
     sample_weight: np.ndarray | None = None,
 ) -> tuple[XGBRegressor, dict]:
-    parameters = {"n_estimators": 300, "learning_rate": 0.05}
+    parameters = {"n_estimators": n_estimators, "learning_rate": learning_rate}
     model = XGBRegressor(
-        n_estimators=parameters["n_estimators"],
+        n_estimators=n_estimators,
         random_state=42,
         max_depth=max_depth,
-        learning_rate=parameters["learning_rate"],
+        learning_rate=learning_rate,
     )
     model.fit(X_train, y_train, sample_weight=sample_weight)
     logger.info("XGBoost training complete")
@@ -162,18 +190,14 @@ def train_xgboost(
 def split_data(
     df: pd.DataFrame, features: list[str], target: str, timestamp_col: str
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
-    min_ts = df[timestamp_col].min()
-    max_ts = df[timestamp_col].max()
-    cutoff = min_ts + (max_ts - min_ts) * 0.8
-    train = df[df[timestamp_col] < cutoff]
-    test = df[df[timestamp_col] >= cutoff]
+    train, test = time_split_df(df, timestamp_col)
     X_train, y_train = get_features_and_target(train, features, target)
     X_test, y_test = get_features_and_target(test, features, target)
     logger.info("Data split complete")
     return X_train, X_test, y_train, y_test
 
 
-def save_model(model: RegressorMixin, path: Path) -> None:
+def save_model(model: BaseEstimator, path: Path) -> None:
     ensure_parent(path)
     if path.exists():
         path.replace(path.with_suffix(".prev.joblib"))

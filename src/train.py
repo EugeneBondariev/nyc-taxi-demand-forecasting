@@ -82,7 +82,7 @@ def process_ab_test_version(
     )
     sample_weight = compute_sample_weights(X_train, y_train)
     model, parameters = train_xgboost(X_train, y_train, sample_weight=sample_weight)
-    save_feature_baseline(X_train, demand_features)
+    save_feature_baseline(X_train, demand_features, categorical_features={"PULocationID"})
     mae, mape = predict_and_evaluate(model, X_test, y_test)
     shap_importances, shap_sample, shap_values = compute_shap_importances(model, X_train)
     log_to_mlflow(

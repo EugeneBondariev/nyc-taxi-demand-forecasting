@@ -102,7 +102,7 @@ def monitor_ab_test_version(
     X, y = get_features_and_target(demand, demand_features, demand_target)
     model = joblib.load(model_path)
     mae, mape = predict_and_evaluate(model, X, y)
-    drifted_features = detect_feature_drift(demand, demand_features)
+    drifted_features = detect_feature_drift(demand)
     compare_predictions(mae, mape, feature_drift=drifted_features)
 
 

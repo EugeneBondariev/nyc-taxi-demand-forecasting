@@ -422,11 +422,10 @@ def drift_v1() -> DriftResponse:
         "snowfall": r.snowfall or 0.0,
         "is_airport": int(r.zone_id in AIRPORT_ZONES),
     } for r in rows])
-    checkable = [f for f in DEMAND_FEATURES_V2 if f in df.columns]
-    drifted = detect_feature_drift(df, checkable)
+    drifted = detect_feature_drift(df)
     return DriftResponse(
         baseline_exists=baseline_exists,
-        features_checked=checkable,
+        features_checked=list(df.columns),
         drifted_features=drifted,
         rows_analyzed=len(df),
     )
