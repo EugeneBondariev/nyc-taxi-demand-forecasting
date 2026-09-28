@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.13-slim AS api
 
 WORKDIR /app
 
@@ -24,3 +24,20 @@ COPY models/ ./models/
 EXPOSE 8000
 
 CMD ["uvicorn", "src.serving.api:app", "--host", "0.0.0.0", "--port", "8000"]
+
+
+FROM apache/airflow:2.10.0 AS airflow
+
+RUN pip install --no-cache-dir apache-airflow-providers-docker==3.14.0
+
+
+FROM python:3.13-slim AS worker
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+COPY requirements.txt .
+RUN grep -v '^torch' requirements.txt | pip install --no-cache-dir -r /dev/stdin
+
+COPY src/ ./src/

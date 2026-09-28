@@ -1,7 +1,8 @@
 x-airflow-common: &airflow-common
   build:
     context: .
-    dockerfile: docker/Dockerfile.airflow
+    dockerfile: docker/Dockerfile
+    target: airflow
   environment:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow:5432/airflow
@@ -59,7 +60,8 @@ services:
   worker:
     build:
       context: .
-      dockerfile: docker/Dockerfile.worker
+      dockerfile: docker/Dockerfile
+      target: worker
     image: uber-worker
     command: echo "worker image built"
 
@@ -95,7 +97,8 @@ services:
   api:
     build:
       context: .
-      dockerfile: docker/Dockerfile.api
+      dockerfile: docker/Dockerfile
+      target: api
     ports:
       - '8000:8000'
     env_file:
