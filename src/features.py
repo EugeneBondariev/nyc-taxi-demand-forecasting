@@ -65,7 +65,7 @@ def download_events_data(year: int) -> None:
     ensure_parent(file)
     if not file.exists():
         logger.info(f"Downloading {year} US public holidays")
-        r = httpx.get(f"https://date.nager.at/api/v3/PublicHolidays/{year}/US")
+        r = httpx.get(f"https://date.nager.at/api/v3/PublicHolidays/{year}/US", verify=False)
         r.raise_for_status()
         df = pd.DataFrame(r.json())[["date", "name"]]
         df.to_parquet(file)
@@ -90,6 +90,7 @@ def download_weather_data(year: int):
 
         r = httpx.get(
             f"https://archive-api.open-meteo.com/v1/archive?latitude=40.7128&longitude=-74.006&start_date={year}-01-01&end_date={year}-12-31&hourly=temperature_2m,precipitation,snowfall&timezone=America%2FNew_York",
+            verify=False,
         )
         df = pd.DataFrame(r.json()["hourly"])
         df.to_parquet(file)

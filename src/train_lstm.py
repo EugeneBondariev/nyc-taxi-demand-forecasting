@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 engine = init_db(DB_URL)
 
 WINDOW_SIZE = 24
-LSTM_FEATURES = ["trip_count", "pickup_hour", "pickup_dow", "temperature_2m", "precipitation", "snowfall", "is_holiday"]
+LSTM_FEATURES = ["trip_count", "pickup_hour", "pickup_dow", "temperature_2m", "precipitation", "snowfall"]
 
 
 def build_sequences(
@@ -145,8 +145,10 @@ def save_model(model: LSTMModel, path: Path) -> None:
 
 def run_training_pipeline() -> None:
     demand = load_data(DEMAND_DATA)
+    latest_year = demand["pickup_hour_ts"].dt.year.max()
+    demand = demand[demand["pickup_hour_ts"].dt.year == latest_year]
     X_train, X_test, y_train, y_test = build_sequences(demand)
-    model = train_model(X_train, y_train)
+    model = train_model(X_train, y_train, epochs=10)
     mae, mape = evaluate(model, X_test, y_test)
     ensure_parent(MODEL_PATH_LSTM)
     save_model(model, MODEL_PATH_LSTM)
