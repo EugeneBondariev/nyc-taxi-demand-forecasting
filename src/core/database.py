@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from typing import Optional
 
 from sqlalchemy import ForeignKey, UniqueConstraint, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -14,12 +13,12 @@ class Prediction(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     timestamp: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
-    model_version_id: Mapped[Optional[int]] = mapped_column(ForeignKey("model_versions.id", ondelete="CASCADE"))
-    zone_id: Mapped[Optional[int]] = mapped_column()
-    hour: Mapped[Optional[int]] = mapped_column()
-    day_of_week: Mapped[Optional[int]] = mapped_column()
-    week: Mapped[Optional[int]] = mapped_column()
-    predicted_trips: Mapped[Optional[float]] = mapped_column()
+    model_version_id: Mapped[int | None] = mapped_column(ForeignKey("model_versions.id", ondelete="CASCADE"))
+    zone_id: Mapped[int | None] = mapped_column()
+    hour: Mapped[int | None] = mapped_column()
+    day_of_week: Mapped[int | None] = mapped_column()
+    week: Mapped[int | None] = mapped_column()
+    predicted_trips: Mapped[float | None] = mapped_column()
 
 
 class ModelVersion(Base):
@@ -27,11 +26,11 @@ class ModelVersion(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     trained_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
-    name: Mapped[Optional[str]] = mapped_column()
-    mae: Mapped[Optional[float]] = mapped_column()
-    mape: Mapped[Optional[float]] = mapped_column()
-    n_estimators: Mapped[Optional[int]] = mapped_column()
-    learning_rate: Mapped[Optional[float]] = mapped_column()
+    name: Mapped[str | None] = mapped_column()
+    mae: Mapped[float | None] = mapped_column()
+    mape: Mapped[float | None] = mapped_column()
+    n_estimators: Mapped[int | None] = mapped_column()
+    learning_rate: Mapped[float | None] = mapped_column()
 
 
 class DemandHistory(Base):
@@ -44,10 +43,10 @@ class DemandHistory(Base):
     trip_count: Mapped[float] = mapped_column()
     pickup_hour: Mapped[int] = mapped_column()
     pickup_dow: Mapped[int] = mapped_column()
-    temperature_2m: Mapped[Optional[float]] = mapped_column()
-    precipitation: Mapped[Optional[float]] = mapped_column()
-    snowfall: Mapped[Optional[float]] = mapped_column()
-    is_holiday: Mapped[Optional[int]] = mapped_column(default=0)
+    temperature_2m: Mapped[float | None] = mapped_column()
+    precipitation: Mapped[float | None] = mapped_column()
+    snowfall: Mapped[float | None] = mapped_column()
+    is_holiday: Mapped[int | None] = mapped_column(default=0)
 
 
 def get_engine(db_url: str):
