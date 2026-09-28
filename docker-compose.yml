@@ -1,7 +1,7 @@
 x-airflow-common: &airflow-common
   build:
     context: .
-    dockerfile: docker/Dockerfile
+    dockerfile: Dockerfile
     target: airflow
   environment:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -60,7 +60,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
       target: worker
     image: uber-worker
     command: echo "worker image built"
@@ -97,7 +97,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
       target: api
     ports:
       - '8000:8000'
