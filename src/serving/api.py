@@ -20,7 +20,8 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from ..core.config import (
     AIRPORT_ZONES,
@@ -54,19 +55,31 @@ API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
 limiter = Limiter(key_func=get_remote_address)
 
 
-async def verify_api_key(api_key: str = Security(API_KEY_HEADER)) -> None:
+async def verify_api_key(api_key: str | None = Security(API_KEY_HEADER)) -> None:
     expected = os.getenv("API_KEY")
     if expected and api_key != expected:
         raise HTTPException(status_code=403, detail="Invalid API key")
 
 
-class CorrelationIdMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        cid = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
+class CorrelationIdMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+        headers = dict(scope.get("headers", []))
+        cid = headers.get(b"x-correlation-id", str(uuid.uuid4()).encode()).decode()
         correlation_id_var.set(cid)
-        response = await call_next(request)
-        response.headers["X-Correlation-ID"] = cid
-        return response
+
+        async def send_with_cid(message: dict) -> None:
+            if message["type"] == "http.response.start":
+                mutable = MutableHeaders(scope=message)
+                mutable.append("X-Correlation-ID", cid)
+            await send(message)
+
+        await self.app(scope, receive, send_with_cid)
 
 
 @asynccontextmanager
@@ -293,7 +306,7 @@ def _predict_logic(body: PredictionRequest) -> PredictionResponse:
         rows = sorted(rows, key=lambda r: r.pickup_hour_ts)
         X_lstm = np.array(
             [[r.trip_count, r.pickup_hour, r.pickup_dow, r.temperature_2m or 0.0,
-              r.precipitation or 0.0, r.snowfall or 0.0, r.is_holiday or 0]
+              r.precipitation or 0.0, r.snowfall or 0.0]
              for r in rows],
             dtype=np.float32,
         )
@@ -350,21 +363,27 @@ def _predict_logic(body: PredictionRequest) -> PredictionResponse:
 )
 @limiter.limit("60/minute")
 def predict_v1(request: Request, body: PredictionRequestV1) -> PredictionResponse:
-    dt = body.prediction_time
-    with Session(engine) as session:
-        lag_24h, lag_168h = _fetch_lag_features(body.zone_id, dt, session)
-    internal = PredictionRequest(
-        zone_id=body.zone_id,
-        hour=dt.hour,
-        day_of_week=dt.weekday(),
-        week=dt.isocalendar()[1],
-        is_holiday=int(dt.strftime("%Y-%m-%d") in holiday_dates),
-        snowfall=_fetch_snowfall(dt),
-        lag_24h=lag_24h,
-        lag_168h=lag_168h,
-        is_nyc_event=int((dt.strftime("%Y-%m-%d"), body.zone_id) in nyc_event_lookup),
-    )
-    return _predict_logic(internal)
+    try:
+        dt = body.prediction_time
+        with Session(engine) as session:
+            lag_24h, lag_168h = _fetch_lag_features(body.zone_id, dt, session)
+        internal = PredictionRequest(
+            zone_id=body.zone_id,
+            hour=dt.hour,
+            day_of_week=dt.weekday(),
+            week=dt.isocalendar()[1],
+            is_holiday=int(dt.strftime("%Y-%m-%d") in holiday_dates),
+            snowfall=_fetch_snowfall(dt),
+            lag_24h=lag_24h,
+            lag_168h=lag_168h,
+            is_nyc_event=int((dt.strftime("%Y-%m-%d"), body.zone_id) in nyc_event_lookup),
+        )
+        return _predict_logic(internal)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Unhandled error in predict_v1")
+        raise
 
 
 @v1.post(

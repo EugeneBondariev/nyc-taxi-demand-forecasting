@@ -39,6 +39,7 @@ def _make_demand(n: int = 600) -> pd.DataFrame:
 
 
 _MLFLOW_PATCH = patch("src.serving.api.mlflow.sklearn.load_model", side_effect=Exception("registry unavailable"))
+_SNOWFALL_PATCH = patch("src.serving.api._fetch_snowfall", return_value=0.0)
 
 
 class TestProcessAbTestVersion:
@@ -82,7 +83,7 @@ class TestProcessAbTestVersion:
 
 class TestPredictApi:
     def test_predict_v1_returns_200(self):
-        with TestClient(app) as client, patch("src.serving.api.random.random", return_value=0.9), _MLFLOW_PATCH:
+        with TestClient(app) as client, patch("src.serving.api.random.random", return_value=0.9), _MLFLOW_PATCH, _SNOWFALL_PATCH:
             response = client.post(
                 "/v1/predict",
                 json={"zone_id": 161, "prediction_time": "2024-03-05T18:00:00"},
@@ -91,7 +92,7 @@ class TestPredictApi:
         assert response.json()["predicted_trips"] >= 0
 
     def test_predict_v1_has_correlation_id_header(self):
-        with TestClient(app) as client, _MLFLOW_PATCH:
+        with TestClient(app) as client, patch("src.serving.api.random.random", return_value=0.9), _MLFLOW_PATCH, _SNOWFALL_PATCH:
             response = client.post(
                 "/v1/predict",
                 json={"zone_id": 161, "prediction_time": "2024-03-05T18:00:00"},
@@ -102,7 +103,7 @@ class TestPredictApi:
         with Session(engine) as session:
             before = session.execute(select(func.count()).select_from(Prediction)).scalar()
 
-        with TestClient(app) as client, patch("src.serving.api.random.random", return_value=0.9), _MLFLOW_PATCH:
+        with TestClient(app) as client, patch("src.serving.api.random.random", return_value=0.9), _MLFLOW_PATCH, _SNOWFALL_PATCH:
             client.post(
                 "/v1/predict",
                 json={"zone_id": 161, "prediction_time": "2024-03-05T18:00:00"},
@@ -122,7 +123,7 @@ class TestPredictApi:
         assert response.status_code == 200
 
     def test_explain_v1_returns_feature_contributions(self):
-        with TestClient(app) as client, _MLFLOW_PATCH:
+        with TestClient(app) as client, _MLFLOW_PATCH, _SNOWFALL_PATCH:
             response = client.post(
                 "/v1/explain",
                 json={"zone_id": 161, "prediction_time": "2024-03-05T18:00:00"},
