@@ -70,11 +70,11 @@ def evaluate_baseline(demand: pd.DataFrame) -> tuple[float, float]:
 
     logger.info(f"Baseline  MAE={mae:.2f}  MAPE={mape:.1%}")
     log_to_mlflow(
-        "demand_baseline",
-        mae,
-        ["PULocationID", "pickup_hour", "pickup_dow"],
-        {},
+        model_name="demand_baseline",
+        mae=mae,
         mape=mape,
+        features=["PULocationID", "pickup_hour", "pickup_dow"],
+        params={},
         experiment="demand",
     )
     return mae, mape

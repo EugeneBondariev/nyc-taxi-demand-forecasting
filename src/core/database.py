@@ -1,61 +1,53 @@
 from datetime import datetime, timezone
+from typing import Optional
 
-from sqlalchemy import (
-    Column,
-    DateTime,
-    Float,
-    ForeignKey,
-    Integer,
-    String,
-    UniqueConstraint,
-    create_engine,
-)
-from sqlalchemy.orm import declarative_base
+from sqlalchemy import ForeignKey, UniqueConstraint, create_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 
 class Prediction(Base):
     __tablename__ = "predictions"
 
-    id = Column(Integer, primary_key=True)
-    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    model_version_id = Column(
-        Integer, ForeignKey("model_versions.id", ondelete="CASCADE")
-    )
-    zone_id = Column(Integer)
-    hour = Column(Integer)
-    day_of_week = Column(Integer)
-    week = Column(Integer)
-    predicted_trips = Column(Float)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    timestamp: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    model_version_id: Mapped[Optional[int]] = mapped_column(ForeignKey("model_versions.id", ondelete="CASCADE"))
+    zone_id: Mapped[Optional[int]] = mapped_column()
+    hour: Mapped[Optional[int]] = mapped_column()
+    day_of_week: Mapped[Optional[int]] = mapped_column()
+    week: Mapped[Optional[int]] = mapped_column()
+    predicted_trips: Mapped[Optional[float]] = mapped_column()
 
 
 class ModelVersion(Base):
     __tablename__ = "model_versions"
 
-    id = Column(Integer, primary_key=True)
-    trained_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    name = Column(String)
-    mae = Column(Float)
-    mape = Column(Float)
-    n_estimators = Column(Integer)
-    learning_rate = Column(Float)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    trained_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    name: Mapped[Optional[str]] = mapped_column()
+    mae: Mapped[Optional[float]] = mapped_column()
+    mape: Mapped[Optional[float]] = mapped_column()
+    n_estimators: Mapped[Optional[int]] = mapped_column()
+    learning_rate: Mapped[Optional[float]] = mapped_column()
 
 
 class DemandHistory(Base):
     __tablename__ = "demand_history"
     __table_args__ = (UniqueConstraint("zone_id", "pickup_hour_ts"),)
 
-    id = Column(Integer, primary_key=True)
-    zone_id = Column(Integer, nullable=False, index=True)
-    pickup_hour_ts = Column(DateTime, nullable=False)
-    trip_count = Column(Float, nullable=False)
-    pickup_hour = Column(Integer, nullable=False)
-    pickup_dow = Column(Integer, nullable=False)
-    temperature_2m = Column(Float)
-    precipitation = Column(Float)
-    snowfall = Column(Float)
-    is_holiday = Column(Integer, default=0)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    zone_id: Mapped[int] = mapped_column(index=True)
+    pickup_hour_ts: Mapped[datetime] = mapped_column()
+    trip_count: Mapped[float] = mapped_column()
+    pickup_hour: Mapped[int] = mapped_column()
+    pickup_dow: Mapped[int] = mapped_column()
+    temperature_2m: Mapped[Optional[float]] = mapped_column()
+    precipitation: Mapped[Optional[float]] = mapped_column()
+    snowfall: Mapped[Optional[float]] = mapped_column()
+    is_holiday: Mapped[Optional[int]] = mapped_column(default=0)
 
 
 def get_engine(db_url: str):
