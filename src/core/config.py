@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-ROOT = Path(__file__).parent.parent
+ROOT = Path(__file__).parent.parent.parent
 DB_URL = os.getenv(
     "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/nyc_taxi"
 )
