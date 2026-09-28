@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.utils import log_to_mlflow
+from src.core.utils import log_to_mlflow
 
 RUNS = [
     # LSTM: zone-based split (original, no time features)

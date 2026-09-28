@@ -1,0 +1,67 @@
+import logging
+
+import mlflow
+import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+from sklearn.preprocessing import StandardScaler
+
+from ..core.config import DEMAND_DATA, MLFLOW_TRACKING_URI, ROOT
+from ..core.logger import setup_logging
+from ..core.utils import ensure_parent, load_data, log_to_mlflow
+
+logger = logging.getLogger(__name__)
+
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+
+N_CLUSTERS = 6
+CLUSTER_PATH = ROOT / "data" / "processed" / "zone_clusters.parquet"
+
+
+def build_zone_profiles(demand: pd.DataFrame) -> pd.DataFrame:
+    """Mean trip count per hour for each zone → (n_zones, 24) feature matrix."""
+    return (
+        demand.groupby(["PULocationID", "pickup_hour"])["trip_count"]
+        .mean()
+        .unstack(fill_value=0)
+    )
+
+
+def run_clustering(n_clusters: int = N_CLUSTERS) -> None:
+    demand = load_data(DEMAND_DATA)
+
+    logger.info("Building hourly demand profiles per zone...")
+    profile = build_zone_profiles(demand)
+
+    scaler = StandardScaler()
+    X = scaler.fit_transform(profile.values)
+
+    logger.info(f"Running KMeans (k={n_clusters})...")
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+    labels = kmeans.fit_predict(X)
+
+    sil = silhouette_score(X, labels)
+    logger.info(f"Silhouette score: {sil:.4f}  (closer to 1 = better separation)")
+
+    result = pd.DataFrame({"zone_id": profile.index, "cluster": labels})
+    ensure_parent(CLUSTER_PATH)
+    result.to_parquet(CLUSTER_PATH, index=False)
+    logger.info(f"Saved → {CLUSTER_PATH}")
+
+    for c in range(n_clusters):
+        zones = result[result["cluster"] == c]["zone_id"].tolist()
+        logger.info(f"  Cluster {c}: {len(zones)} zones")
+
+    log_to_mlflow(
+        "kmeans_zones",
+        mae=None,
+        features=[],
+        params={"n_clusters": n_clusters, "n_zones": len(profile), "features": "hourly_mean_trip_count_0-23"},
+        metrics={"silhouette_score": sil},
+        experiment="clustering",
+    )
+
+
+if __name__ == "__main__":
+    setup_logging()
+    run_clustering()

@@ -15,7 +15,7 @@ if db_url:
     config.set_main_option("sqlalchemy.url", db_url)
 
 # Register all ORM models so autogenerate can diff against the live schema
-from src.database import Base
+from src.core.database import Base
 
 target_metadata = Base.metadata
 

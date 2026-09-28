@@ -1,0 +1,81 @@
+import logging
+from collections.abc import Callable
+from pathlib import Path
+
+import pandas as pd
+
+from ..core.config import (
+    DB_URL,
+    FARE_AMOUNT_FEATURES_A,
+    FARE_AMOUNT_FEATURES_B,
+    FARE_TARGET,
+    MODEL_PATH_FARE_A,
+    MODEL_PATH_FARE_B,
+    TAXI_DATA_FOLDER,
+    ModelName,
+)
+from ..core.database import init_db
+from ..data.features import load_and_clean_taxi_data
+from ..core.logger import setup_logging
+from ..core.utils import (
+    log_to_mlflow,
+    predict_and_evaluate,
+    save_model,
+    save_to_database,
+    split_data,
+    train_linear,
+    train_xgboost,
+)
+
+logger = logging.getLogger(__name__)
+engine = init_db(DB_URL)
+
+
+def train_fare_version(
+    df: pd.DataFrame,
+    features: list[str],
+    target: str,
+    model_fn: Callable,
+    model_path: Path,
+    model_name: str,
+    **model_kwargs,
+) -> None:
+    X_train, X_test, y_train, y_test = split_data(
+        df=df,
+        features=features,
+        target=target,
+        timestamp_col="tpep_pickup_datetime",
+    )
+    model, params = model_fn(X_train, y_train, **model_kwargs)
+    mae, mape = predict_and_evaluate(model=model, X_test=X_test, y_test=y_test)
+    log_to_mlflow(model_name=model_name, mae=mae, features=features, params=params, mape=mape, experiment="fare")
+    model_path.parent.mkdir(exist_ok=True)
+    save_model(model=model, path=model_path)
+    save_to_database(mae=mae, mape=mape, parameters=params, model_name=model_name, engine=engine)
+
+
+def run_training_pipeline() -> None:
+    df = load_and_clean_taxi_data(TAXI_DATA_FOLDER)
+
+    train_fare_version(
+        df,
+        FARE_AMOUNT_FEATURES_A,
+        FARE_TARGET,
+        train_linear,
+        MODEL_PATH_FARE_A,
+        ModelName.FARE_LINEAR.value,
+    )
+    train_fare_version(
+        df.sample(frac=0.1, random_state=42),
+        FARE_AMOUNT_FEATURES_B,
+        FARE_TARGET,
+        train_xgboost,
+        MODEL_PATH_FARE_B,
+        ModelName.FARE_XGB.value,
+        max_depth=6,
+    )
+
+
+if __name__ == "__main__":
+    setup_logging()
+    run_training_pipeline()
