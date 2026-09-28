@@ -205,15 +205,6 @@ def save_model(model: BaseEstimator, path: Path) -> None:
     logger.info(f"Model saved to {path}")
 
 
-def rollback_model(path: Path) -> bool:
-    prev = path.with_suffix(".prev.joblib")
-    if prev.exists():
-        prev.replace(path)
-        logger.info(f"Rolled back model at {path}")
-        return True
-    logger.warning(f"No previous model found for {path}")
-    return False
-
 
 def ensure_parent(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)

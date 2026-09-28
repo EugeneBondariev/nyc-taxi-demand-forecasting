@@ -68,7 +68,9 @@ migrate-new:
 	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m alembic revision --autogenerate -m "$(msg)"
 
 rollback:
-	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -c "from src.utils import rollback_model; from src.config import MODEL_PATH_A; rollback_model(MODEL_PATH_A)"
+	@echo "To rollback, set the 'champion' alias to a previous version in MLflow:"
+	@echo "  mlflow models set-alias -m demand_xgboost --alias champion --version <N>"
+	@echo "Or via the MLflow UI at $(MLFLOW_TRACKING_URI)/#/models/demand_xgboost"
 
 k8s-deploy:
 	kubectl create secret generic uber-secrets \
