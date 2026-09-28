@@ -10,7 +10,11 @@ _V1_PAYLOAD = {"zone_id": 161, "prediction_time": "2024-03-05T18:00:00"}
 
 
 def test_predict_latency_under_500ms():
-    with TestClient(app) as client, patch("src.api.random.random", return_value=0.9):
+    with (
+        TestClient(app) as client,
+        patch("src.api.random.random", return_value=0.9),
+        patch("src.api._fetch_snowfall", return_value=0.0),
+    ):
         start = time.perf_counter()
         response = client.post("/v1/predict", json=_V1_PAYLOAD)
         elapsed = time.perf_counter() - start
@@ -21,7 +25,11 @@ def test_predict_latency_under_500ms():
 def test_predict_concurrent_no_errors():
     n_requests = 20
 
-    with TestClient(app) as client, patch("src.api.random.random", return_value=0.9):
+    with (
+        TestClient(app) as client,
+        patch("src.api.random.random", return_value=0.9),
+        patch("src.api._fetch_snowfall", return_value=0.0),
+    ):
         def _call(_):
             return client.post("/v1/predict", json=_V1_PAYLOAD).status_code
 

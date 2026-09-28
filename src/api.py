@@ -5,6 +5,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 
+import httpx
 import joblib
 import numpy as np
 import pandas as pd
@@ -33,6 +34,7 @@ from .config import (
 from .context import correlation_id_var
 from .database import DemandHistory, ModelVersion, Prediction, init_db
 from .events import build_event_lookup
+from .features import load_events_data
 from .logger import setup_logging
 from .train_lstm import LSTMModel
 from .utils import detect_feature_drift
@@ -45,6 +47,7 @@ model_b_version_id = None
 engine = None
 conformal_margin = None
 nyc_event_lookup: set[tuple[str, int]] = set()
+holiday_dates: set[str] = set()
 
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
 limiter = Limiter(key_func=get_remote_address)
@@ -68,13 +71,18 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     setup_logging()
-    global model_a, model_b, model_a_version_id, model_b_version_id, engine, conformal_margin, nyc_event_lookup
+    global model_a, model_b, model_a_version_id, model_b_version_id, engine, conformal_margin, nyc_event_lookup, holiday_dates
     nyc_event_lookup = build_event_lookup(list(range(2020, 2036)))
+    holiday_dates = load_events_data()
     model_a = joblib.load(MODEL_PATH_A)
-    model_b = LSTMModel()
-    model_b.load_state_dict(torch.load(MODEL_PATH_LSTM, weights_only=True))
-    model_b.eval()
-    logger.info("Models loaded successfully")
+    try:
+        model_b = LSTMModel()
+        model_b.load_state_dict(torch.load(MODEL_PATH_LSTM, weights_only=True))
+        model_b.eval()
+        logger.info("Models loaded successfully")
+    except Exception as e:
+        model_b = None
+        logger.warning(f"LSTM model failed to load — A/B test will use XGBoost only: {e}")
     if CONFORMAL_MARGIN_PATH.exists():
         conformal_margin = float(np.load(CONFORMAL_MARGIN_PATH)[0])
         logger.info(f"Conformal margin loaded: {conformal_margin:.2f}")
@@ -125,16 +133,12 @@ class PredictionRequest(BaseModel):
 class PredictionRequestV1(BaseModel):
     zone_id: int = Field(ge=1, le=265, description="NYC taxi zone ID (1-265)")
     prediction_time: datetime = Field(description="Timestamp for which to forecast demand")
-    is_holiday: int = Field(default=0, ge=0, le=1, description="1 if a US public holiday")
-    snowfall: float = Field(default=0.0, ge=0.0, description="Current snowfall in cm (0 if clear)")
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "zone_id": 161,
                 "prediction_time": "2024-03-05T18:00:00",
-                "is_holiday": 0,
-                "snowfall": 0.0,
             }
         }
     }
@@ -153,8 +157,6 @@ class PredictionResponse(BaseModel):
 class ExplainRequest(BaseModel):
     zone_id: int = Field(ge=1, le=265, description="NYC taxi zone ID (1-265)")
     prediction_time: datetime = Field(description="Timestamp to explain")
-    is_holiday: int = Field(default=0, ge=0, le=1)
-    snowfall: float = Field(default=0.0, ge=0.0, description="Current snowfall in cm")
 
     model_config = {
         "json_schema_extra": {
@@ -194,6 +196,30 @@ class DriftResponse(BaseModel):
     features_checked: list[str]
     drifted_features: list[str]
     rows_analyzed: int
+
+
+def _fetch_snowfall(dt: datetime) -> float:
+    date_str = dt.strftime("%Y-%m-%d")
+    try:
+        r = httpx.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": 40.7128, "longitude": -74.006,
+                "hourly": "snowfall", "timezone": "America/New_York",
+                "start_date": date_str, "end_date": date_str,
+            },
+            timeout=5.0,
+        )
+        r.raise_for_status()
+        data = r.json()
+        target = dt.strftime("%Y-%m-%dT%H:00")
+        hours = data["hourly"]["time"]
+        snowfall_vals = data["hourly"]["snowfall"]
+        if target in hours:
+            return float(snowfall_vals[hours.index(target)])
+    except Exception:
+        pass
+    return 0.0
 
 
 def _build_xgb_features(
@@ -245,7 +271,7 @@ def _predict_logic(body: PredictionRequest) -> PredictionResponse:
     day_of_week = body.day_of_week
     week = body.week
 
-    use_model_b = random.random() < 0.5
+    use_model_b = model_b is not None and random.random() < 0.5
     version_id = model_b_version_id if use_model_b else model_a_version_id
 
     if use_model_b:
@@ -326,8 +352,8 @@ def predict_v1(request: Request, body: PredictionRequestV1) -> PredictionRespons
         hour=dt.hour,
         day_of_week=dt.weekday(),
         week=dt.isocalendar()[1],
-        is_holiday=body.is_holiday,
-        snowfall=body.snowfall,
+        is_holiday=int(dt.strftime("%Y-%m-%d") in holiday_dates),
+        snowfall=_fetch_snowfall(dt),
         lag_24h=lag_24h,
         lag_168h=lag_168h,
         is_nyc_event=int((dt.strftime("%Y-%m-%d"), body.zone_id) in nyc_event_lookup),
@@ -350,7 +376,8 @@ def explain_v1(request: Request, body: ExplainRequest) -> ExplainResponse:
         lag_24h, lag_168h = _fetch_lag_features(body.zone_id, dt, session)
     X = _build_xgb_features(
         body.zone_id, dt.hour, dt.weekday(), dt.isocalendar()[1],
-        body.is_holiday, body.snowfall, lag_24h, lag_168h,
+        int(dt.strftime("%Y-%m-%d") in holiday_dates), _fetch_snowfall(dt),
+        lag_24h, lag_168h,
         int((dt.strftime("%Y-%m-%d"), body.zone_id) in nyc_event_lookup),
     )
     explainer = shap.TreeExplainer(model_a)
