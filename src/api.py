@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 import httpx
 import joblib
+import mlflow.sklearn
 import numpy as np
 import pandas as pd
 import shap
@@ -74,7 +75,12 @@ async def lifespan(_: FastAPI):
     global model_a, model_b, model_a_version_id, model_b_version_id, engine, conformal_margin, nyc_event_lookup, holiday_dates
     nyc_event_lookup = build_event_lookup(list(range(2020, 2036)))
     holiday_dates = load_events_data()
-    model_a = joblib.load(MODEL_PATH_A)
+    try:
+        model_a = mlflow.sklearn.load_model(f"models:/{ModelName.DEMAND_XGB.value}@champion")
+        logger.info("Loaded XGBoost model from MLflow registry (champion)")
+    except Exception:
+        model_a = joblib.load(MODEL_PATH_A)
+        logger.info("Loaded XGBoost model from local file (registry unavailable)")
     try:
         model_b = LSTMModel()
         model_b.load_state_dict(torch.load(MODEL_PATH_LSTM, weights_only=True))

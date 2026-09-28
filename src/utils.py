@@ -229,9 +229,12 @@ def log_to_mlflow(
     shap_importances: dict[str, float] | None = None,
     metrics: dict[str, float] | None = None,
     experiment: str = "default",
+    model: BaseEstimator | None = None,
 ) -> None:
+    import mlflow.sklearn
+
     mlflow.set_experiment(experiment)
-    with mlflow.start_run(run_name=model_name):
+    with mlflow.start_run(run_name=model_name) as run:
         mlflow.set_tag("mlflow.user", os.getenv("MLFLOW_USER", ""))
         if mae is not None:
             mlflow.log_metric("mae", mae)
@@ -247,6 +250,17 @@ def log_to_mlflow(
             mlflow.log_metrics({f"shap_{k}": v for k, v in shap_importances.items()})
         if metrics:
             mlflow.log_metrics(metrics)
+        if model is not None:
+            mlflow.sklearn.log_model(model, "model")
+
+    if model is not None:
+        try:
+            mv = mlflow.register_model(f"runs:/{run.info.run_id}/model", model_name)
+            client = mlflow.MlflowClient()
+            client.set_registered_model_alias(model_name, "champion", mv.version)
+            logger.info(f"Registered {model_name} v{mv.version} as champion in MLflow registry")
+        except Exception as e:
+            logger.warning(f"MLflow registry unavailable — model not registered: {e}")
 
 
 def save_to_database(

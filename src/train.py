@@ -88,6 +88,7 @@ def process_ab_test_version(
     log_to_mlflow(
         model_name, mae, demand_features, parameters, mape,
         shap_importances=shap_importances, experiment="demand",
+        model=model,
     )
     log_shap_plot(shap_values, shap_sample)
     save_model(model, model_path)
