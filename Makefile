@@ -8,37 +8,37 @@ PYTHONUTF8=1
 PYTHON=.venv/Scripts/python.exe
 
 features:
-	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.features
+	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.data.features
 
 features-spark:
-	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.features_spark
+	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.data.features_spark
 
 train:
-	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.train
+	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.training.train
 
 train-lstm:
-	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.train_lstm
+	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.training.train_lstm
 
 train-fare:
-	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.train_fare
+	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.training.train_fare
 
 monitoring:
-	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.monitoring
+	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.monitoring.monitoring
 
 ab-test:
-	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.ab_test
+	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.training.ab_test
 
 cluster:
-	$(PYTHON) -m src.clustering
+	$(PYTHON) -m src.training.clustering
 
 anomaly:
-	$(PYTHON) -m src.anomaly
+	$(PYTHON) -m src.training.anomaly
 
 train-classification:
-	$(PYTHON) -m src.train_classification
+	$(PYTHON) -m src.training.train_classification
 
 api:
-	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m uvicorn src.api:app --host 0.0.0.0 --port 8000 --reload
+	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m uvicorn src.serving.api:app --host 0.0.0.0 --port 8000 --reload
 
 frontend:
 	streamlit run frontend/app.py
@@ -59,7 +59,7 @@ dvc-pull:
 	$(PYTHON) -m dvc pull
 
 baseline:
-	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.baseline
+	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m src.training.baseline
 
 migrate:
 	DATABASE_URL=$(DATABASE_URL) $(PYTHON) -m alembic upgrade head
