@@ -205,16 +205,15 @@ def save_model(model: BaseEstimator, path: Path) -> None:
     logger.info(f"Model saved to {path}")
 
 
-
 def ensure_parent(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
 
 def log_to_mlflow(
     model_name: str,
-    mae: float | None,
     features: list[str],
     params: dict,
+    mae: float | None,
     mape: float | None = None,
     tags: dict | None = None,
     shap_importances: dict[str, float] | None = None,
@@ -249,7 +248,9 @@ def log_to_mlflow(
             mv = mlflow.register_model(f"runs:/{run.info.run_id}/model", model_name)
             client = mlflow.MlflowClient()
             client.set_registered_model_alias(model_name, "champion", mv.version)
-            logger.info(f"Registered {model_name} v{mv.version} as champion in MLflow registry")
+            logger.info(
+                f"Registered {model_name} v{mv.version} as champion in MLflow registry"
+            )
         except Exception as e:
             logger.warning(f"MLflow registry unavailable — model not registered: {e}")
 

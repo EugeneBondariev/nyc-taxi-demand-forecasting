@@ -16,7 +16,14 @@ logger = logging.getLogger(__name__)
 engine = init_db(DB_URL)
 
 WINDOW_SIZE = 24
-LSTM_FEATURES = ["trip_count", "pickup_hour", "pickup_dow", "temperature_2m", "precipitation", "snowfall"]
+LSTM_FEATURES = [
+    "trip_count",
+    "pickup_hour",
+    "pickup_dow",
+    "temperature_2m",
+    "precipitation",
+    "snowfall",
+]
 
 
 def build_sequences(
@@ -117,14 +124,18 @@ def train_model(
         else:
             no_improve += 1
             if no_improve >= patience:
-                logger.info(f"Early stopping at epoch {epoch + 1} (patience={patience})")
+                logger.info(
+                    f"Early stopping at epoch {epoch + 1} (patience={patience})"
+                )
                 model.load_state_dict(best_state)
                 break
 
     return model
 
 
-def evaluate(model: LSTMModel, X_test: np.ndarray, y_test: np.ndarray) -> tuple[float, float]:
+def evaluate(
+    model: LSTMModel, X_test: np.ndarray, y_test: np.ndarray
+) -> tuple[float, float]:
     model.eval()
     with torch.no_grad():
         preds = model(torch.tensor(X_test)).numpy()
@@ -141,34 +152,40 @@ def save_model(model: LSTMModel, path: Path) -> None:
     logger.info(f"Model saved to {path}")
 
 
-
-
 def run_training_pipeline() -> None:
     demand = load_data(DEMAND_DATA)
     latest_year = demand["pickup_hour_ts"].dt.year.max()
     demand = demand[demand["pickup_hour_ts"].dt.year == latest_year]
-    X_train, X_test, y_train, y_test = build_sequences(demand)
-    model = train_model(X_train, y_train, epochs=10)
-    mae, mape = evaluate(model, X_test, y_test)
+    X_train, X_test, y_train, y_test = build_sequences(demand=demand)
+    model = train_model(X_train=X_train, y_train=y_train, epochs=10)
+    mae, mape = evaluate(model=model, X_test=X_test, y_test=y_test)
     ensure_parent(MODEL_PATH_LSTM)
     save_model(model, MODEL_PATH_LSTM)
+    lstm_params = {
+        "max_epochs": 20,
+        "batch_size": 512,
+        "lr": 0.001,
+        "patience": 3,
+        "window_size": WINDOW_SIZE,
+        "hidden_size": 64,
+        "num_layers": 2,
+        "early_stopping": True,
+    }
     log_to_mlflow(
-        ModelName.DEMAND_LSTM.value,
-        mae,
-        LSTM_FEATURES,
-        {
-            "max_epochs": 20, "batch_size": 512, "lr": 0.001,
-            "patience": 3, "window_size": WINDOW_SIZE,
-            "hidden_size": 64, "num_layers": 2, "early_stopping": True,
-        },
+        model_name=ModelName.DEMAND_LSTM.value,
+        mae=mae,
+        features=LSTM_FEATURES,
+        params=lstm_params,
         mape=mape,
         experiment="demand",
     )
-    lstm_params = {
-        "max_epochs": 20, "batch_size": 512, "lr": 0.001,
-        "patience": 3, "window_size": WINDOW_SIZE, "hidden_size": 64, "num_layers": 2,
-    }
-    save_to_database(mae, mape, lstm_params, ModelName.DEMAND_LSTM.value, engine)
+    save_to_database(
+        mae=mae,
+        mape=mape,
+        parameters=lstm_params,
+        model_name=ModelName.DEMAND_LSTM.value,
+        engine=engine,
+    )
 
 
 if __name__ == "__main__":

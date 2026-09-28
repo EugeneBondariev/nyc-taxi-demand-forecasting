@@ -41,14 +41,17 @@ def train_fare_version(
     **model_kwargs,
 ) -> None:
     X_train, X_test, y_train, y_test = split_data(
-        df, features, target, "tpep_pickup_datetime"
+        df=df,
+        features=features,
+        target=target,
+        timestamp_col="tpep_pickup_datetime",
     )
     model, params = model_fn(X_train, y_train, **model_kwargs)
-    mae, mape = predict_and_evaluate(model, X_test, y_test)
-    log_to_mlflow(model_name, mae, features, params, mape, experiment="fare")
+    mae, mape = predict_and_evaluate(model=model, X_test=X_test, y_test=y_test)
+    log_to_mlflow(model_name=model_name, mae=mae, features=features, params=params, mape=mape, experiment="fare")
     model_path.parent.mkdir(exist_ok=True)
-    save_model(model, model_path)
-    save_to_database(mae, mape, params, model_name, engine)
+    save_model(model=model, path=model_path)
+    save_to_database(mae=mae, mape=mape, parameters=params, model_name=model_name, engine=engine)
 
 
 def run_training_pipeline() -> None:

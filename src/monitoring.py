@@ -99,11 +99,11 @@ def monitor_ab_test_version(
     demand_target: str,
     model_path: Path,
 ):
-    X, y = get_features_and_target(demand, demand_features, demand_target)
+    X, y = get_features_and_target(df=demand, features=demand_features, target=demand_target)
     model = joblib.load(model_path)
-    mae, mape = predict_and_evaluate(model, X, y)
+    mae, mape = predict_and_evaluate(model=model, X_test=X, y_test=y)
     drifted_features = detect_feature_drift(demand)
-    compare_predictions(mae, mape, feature_drift=drifted_features)
+    compare_predictions(mae=mae, mape=mape, feature_drift=drifted_features)
 
 
 if __name__ == "__main__":
@@ -122,5 +122,5 @@ if __name__ == "__main__":
     weather_df = load_and_clean_weather_data(WEATHER_DATA_FOLDER)
     holiday_dates = load_events_data()
 
-    demand = build_demand_table(taxi_df, weather_df, holiday_dates)
-    monitor_ab_test_version(demand, DEMAND_FEATURES_V2, DEMAND_TARGET, MODEL_PATH_A)
+    demand = build_demand_table(taxi_df=taxi_df, weather_df=weather_df, holiday_dates=holiday_dates)
+    monitor_ab_test_version(demand=demand, demand_features=DEMAND_FEATURES_V2, demand_target=DEMAND_TARGET, model_path=MODEL_PATH_A)
