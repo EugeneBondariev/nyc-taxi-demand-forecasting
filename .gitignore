@@ -5,8 +5,8 @@ __pycache__/
 .env
 logs/*
 !logs/.gitkeep
-*.log
-*.db
+dbs/*
+!dbs/.gitkeep
 .claude/
 models/**/*.prev.joblib
 mlflow_artifacts/
