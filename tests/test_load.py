@@ -14,6 +14,7 @@ def test_predict_latency_under_500ms():
         TestClient(app) as client,
         patch("src.api.random.random", return_value=0.9),
         patch("src.api._fetch_snowfall", return_value=0.0),
+        patch("src.api.mlflow.sklearn.load_model", side_effect=Exception("registry unavailable")),
     ):
         start = time.perf_counter()
         response = client.post("/v1/predict", json=_V1_PAYLOAD)
@@ -29,6 +30,7 @@ def test_predict_concurrent_no_errors():
         TestClient(app) as client,
         patch("src.api.random.random", return_value=0.9),
         patch("src.api._fetch_snowfall", return_value=0.0),
+        patch("src.api.mlflow.sklearn.load_model", side_effect=Exception("registry unavailable")),
     ):
         def _call(_):
             return client.post("/v1/predict", json=_V1_PAYLOAD).status_code

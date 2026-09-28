@@ -117,7 +117,7 @@ def test_save_feature_baseline_excludes_low_cardinality(tmp_path):
     df = _make_baseline_df()
     stats_path = tmp_path / "feature_stats.json"
     with patch("src.utils.FEATURE_STATS_PATH", stats_path):
-        save_feature_baseline(df, ["continuous", "binary", "categorical"])
+        save_feature_baseline(df=df, features=["continuous", "binary", "categorical"])
     baseline = json.loads(stats_path.read_text())
     assert "continuous" in baseline
     assert "binary" not in baseline      # 95% zeros → bins collapse
@@ -138,7 +138,7 @@ def test_detect_feature_drift_no_drift(tmp_path):
     df = pd.DataFrame({"continuous": rng.uniform(0, 100, 500)})
     stats_path = tmp_path / "feature_stats.json"
     with patch("src.utils.FEATURE_STATS_PATH", stats_path):
-        save_feature_baseline(df, ["continuous"])
+        save_feature_baseline(df=df, features=["continuous"])
         drifted = detect_feature_drift(df)
     assert drifted == []
 
@@ -149,7 +149,7 @@ def test_detect_feature_drift_detects_shift(tmp_path):
     shifted_df = pd.DataFrame({"continuous": rng.uniform(80, 100, 500)})
     stats_path = tmp_path / "feature_stats.json"
     with patch("src.utils.FEATURE_STATS_PATH", stats_path):
-        save_feature_baseline(baseline_df, ["continuous"])
+        save_feature_baseline(df=baseline_df, features=["continuous"])
         drifted = detect_feature_drift(shifted_df)
     assert "continuous" in drifted
 
