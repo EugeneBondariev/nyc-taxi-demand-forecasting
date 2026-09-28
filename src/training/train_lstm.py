@@ -160,8 +160,11 @@ def run_training_pipeline() -> None:
     top_zones = demand.groupby("PULocationID")["trip_count"].sum().nlargest(TOP_N_ZONES).index
     demand = demand[demand["PULocationID"].isin(top_zones)]
     logger.info(f"LSTM training on top {TOP_N_ZONES} zones ({len(demand):,} rows)")
+    logger.info("Building sequences...")
     X_train, X_test, y_train, y_test = build_sequences(demand=demand)
+    logger.info(f"Sequences ready — train={len(X_train):,}  test={len(X_test):,}")
     epochs = 10
+    logger.info(f"Training LSTM for up to {epochs} epochs...")
     model = train_model(X_train=X_train, y_train=y_train, epochs=epochs)
     mae, mape = evaluate(model=model, X_test=X_test, y_test=y_test)
     ensure_parent(MODEL_PATH_LSTM)
