@@ -3,8 +3,10 @@ data/
 __pycache__/
 *.pyc
 .env
-*.db
+logs/*
+!logs/.gitkeep
 *.log
+*.db
 .claude/
 models/**/*.prev.joblib
 mlflow_artifacts/
